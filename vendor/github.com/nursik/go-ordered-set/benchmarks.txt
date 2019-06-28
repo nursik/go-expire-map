@@ -1,0 +1,111 @@
+BenchmarkTreeSet_Insert-8        	50000000	        44.4 ns/op	       2 B/op	       0 allocs/op
+BenchmarkNativeMap_Insert-8      	10000000	       169 ns/op	      40 B/op	       0 allocs/op
+BenchmarkTreeSet_Insert2/Rotate_1000-8         	100000000	        20.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTreeSet_Insert2/Rotate_100000-8       	50000000	        26.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTreeSet_Insert2/Rotate_10000000-8     	30000000	        36.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkNativeMap_Insert2/Rotate_1000-8       	50000000	        29.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkNativeMap_Insert2/Rotate_100000-8     	30000000	        44.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkNativeMap_Insert2/Rotate_10000000-8   	10000000	       182 ns/op	      40 B/op	       0 allocs/op
+BenchmarkTreeSet_Insert3/Preinsert_And_Rotate_1000-8         	100000000	        19.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTreeSet_Insert3/Preinsert_And_Rotate_100000-8       	50000000	        26.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTreeSet_Insert3/Preinsert_And_Rotate_10000000-8     	50000000	        30.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkNativeMap_Insert3/Preinsert_And_Rotate_1000-8       	50000000	        28.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkNativeMap_Insert3/Preinsert_And_Rotate_100000-8     	30000000	        42.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkNativeMap_Insert3/Preinsert_And_Rotate_10000000-8   	30000000	        91.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTreeSet_Insert4/N+3000000000_1000-8                 	   30000	     52211 ns/op	    4776 B/op	      99 allocs/op
+BenchmarkTreeSet_Insert4/N+3000000000_10000-8                	    3000	    493171 ns/op	   28840 B/op	     737 allocs/op
+BenchmarkTreeSet_Insert4/N+3000000000_100000-8               	     300	   5373557 ns/op	  268680 B/op	    7110 allocs/op
+BenchmarkTreeSet_Insert4/N+3000000000_1000000-8              	      30	  48761273 ns/op	 2668680 B/op	   70860 allocs/op
+BenchmarkTreeSet_Insert4/N+3000000000_10000000-8             	       3	 498175803 ns/op	26668776 B/op	  708361 allocs/op
+BenchmarkTreeSet_Insert4/N+3000000000_100000000-8            	       1	5116473730 ns/op	266668616 B/op	 7083359 allocs/op
+BenchmarkNativeMap_Insert4/N+3000000000_1000-8               	   20000	     79965 ns/op	   47799 B/op	      65 allocs/op
+BenchmarkNativeMap_Insert4/N+3000000000_10000-8              	    2000	    629498 ns/op	  389476 B/op	     255 allocs/op
+BenchmarkNativeMap_Insert4/N+3000000000_100000-8             	     200	   7446727 ns/op	 3278993 B/op	    3930 allocs/op
+BenchmarkNativeMap_Insert4/N+3000000000_1000000-8            	      10	 131582940 ns/op	49832270 B/op	   38415 allocs/op
+BenchmarkNativeMap_Insert4/N+3000000000_10000000-8           	       1	1541148860 ns/op	403989224 B/op	  306826 allocs/op
+BenchmarkNativeMap_Insert4/N+3000000000_100000000-8          	       1	19045362347 ns/op	3418837536 B/op	 3905914 allocs/op
+BenchmarkTreeSet_Insert5/N_1000-8                            	   50000	     25563 ns/op	    2824 B/op	      74 allocs/op
+BenchmarkTreeSet_Insert5/N_10000-8                           	    5000	    273287 ns/op	   27048 B/op	     714 allocs/op
+BenchmarkTreeSet_Insert5/N_100000-8                          	     500	   4287615 ns/op	  267048 B/op	    7089 allocs/op
+BenchmarkTreeSet_Insert5/N_1000000-8                         	      30	  33944881 ns/op	 2667048 B/op	   70839 allocs/op
+BenchmarkTreeSet_Insert5/N_10000000-8                        	       3	 399962676 ns/op	26667048 B/op	  708339 allocs/op
+BenchmarkTreeSet_Insert5/N_100000000-8                       	       1	4510408532 ns/op	266667144 B/op	 7083340 allocs/op
+BenchmarkNativeMap_Insert5/N_1000-8                          	   20000	     80217 ns/op	   47798 B/op	      65 allocs/op
+BenchmarkNativeMap_Insert5/N_10000-8                         	    2000	    626265 ns/op	  389436 B/op	     254 allocs/op
+BenchmarkNativeMap_Insert5/N_100000-8                        	     200	   7320791 ns/op	 3281114 B/op	    3937 allocs/op
+BenchmarkNativeMap_Insert5/N_1000000-8                       	      10	 131718602 ns/op	49816934 B/op	   38342 allocs/op
+BenchmarkNativeMap_Insert5/N_10000000-8                      	       1	1557626335 ns/op	404057928 B/op	  307685 allocs/op
+BenchmarkNativeMap_Insert5/N_100000000-8                     	       1	17947843388 ns/op	3418895760 B/op	 3906867 allocs/op
+BenchmarkTreeSet_Insert6/N_Random_1000-8         	   30000	     50547 ns/op	    2823 B/op	      73 allocs/op
+BenchmarkTreeSet_Insert6/N_Random_10000-8        	    3000	    530736 ns/op	   27048 B/op	     714 allocs/op
+BenchmarkTreeSet_Insert6/N_Random_100000-8       	     200	   8001878 ns/op	  267048 B/op	    7089 allocs/op
+BenchmarkTreeSet_Insert6/N_Random_1000000-8      	      10	 100160784 ns/op	 2667048 B/op	   70839 allocs/op
+BenchmarkTreeSet_Insert6/N_Random_10000000-8     	       1	2675915560 ns/op	26667144 B/op	  708340 allocs/op
+BenchmarkTreeSet_Insert6/N_Random_100000000-8    	       1	46189376431 ns/op	266667048 B/op	 7083339 allocs/op
+BenchmarkNativeMap_Insert6/N_Random_1000-8         	   20000	     83013 ns/op	   24158 B/op	      41 allocs/op
+BenchmarkNativeMap_Insert6/N_Random_10000-8        	    2000	    776745 ns/op	  203527 B/op	     207 allocs/op
+BenchmarkNativeMap_Insert6/N_Random_100000-8       	     200	   8945383 ns/op	 3072723 B/op	    2273 allocs/op
+BenchmarkNativeMap_Insert6/N_Random_1000000-8      	      10	 117298693 ns/op	25026664 B/op	   19096 allocs/op
+BenchmarkNativeMap_Insert6/N_Random_10000000-8     	       1	1672488734 ns/op	214690112 B/op	  250944 allocs/op
+BenchmarkNativeMap_Insert6/N_Random_100000000-8    	       1	22089354245 ns/op	3203676408 B/op	 2455350 allocs/op
+BenchmarkTreeSet_GCTime/N_1000-8                             	   50000	     25478 ns/op	    2824 B/op	      74 allocs/op
+BenchmarkTreeSet_GCTime/N_10000-8                            	    5000	    272229 ns/op	   27048 B/op	     714 allocs/op
+BenchmarkTreeSet_GCTime/N_100000-8                           	     500	   4424997 ns/op	  267048 B/op	    7089 allocs/op
+BenchmarkTreeSet_GCTime/N_1000000-8                          	      30	  33997362 ns/op	 2667048 B/op	   70839 allocs/op
+BenchmarkTreeSet_GCTime/N_10000000-8                         	       3	 400765919 ns/op	26667080 B/op	  708339 allocs/op
+BenchmarkTreeSet_GCTime/N_100000000-8                        	       1	4511893480 ns/op	266667048 B/op	 7083339 allocs/op
+BenchmarkNativeMap_GCTime/N_1000-8                           	   20000	     81639 ns/op	   47797 B/op	      65 allocs/op
+BenchmarkNativeMap_GCTime/N_10000-8                          	    2000	    627134 ns/op	  389573 B/op	     255 allocs/op
+BenchmarkNativeMap_GCTime/N_100000-8                         	     200	   7007052 ns/op	 3280796 B/op	    3936 allocs/op
+BenchmarkNativeMap_GCTime/N_1000000-8                        	      10	 130950175 ns/op	49815390 B/op	   38272 allocs/op
+BenchmarkNativeMap_GCTime/N_10000000-8                       	       1	1540121330 ns/op	404002384 B/op	  307217 allocs/op
+BenchmarkNativeMap_GCTime/N_100000000-8                      	       1	17517782027 ns/op	3418680440 B/op	 3903948 allocs/op
+BenchmarkTreeSet_Contains/Preinsert_And_Rotate_1000-8        	  100000	     17777 ns/op
+BenchmarkTreeSet_Contains/Preinsert_And_Rotate_100000-8      	    1000	   2334136 ns/op
+BenchmarkTreeSet_Contains/Preinsert_And_Rotate_10000000-8    	       3	 377176019 ns/op
+BenchmarkNativeMap_Contains/Preinsert_And_Rotate_1000-8      	   50000	     30811 ns/op
+BenchmarkNativeMap_Contains/Preinsert_And_Rotate_100000-8    	     300	   4163993 ns/op
+BenchmarkNativeMap_Contains/Preinsert_And_Rotate_10000000-8  	       1	2308952466 ns/op
+BenchmarkTreeSet_Contains2/Preinsert_And_Random_1000-8       	   50000	     32842 ns/op
+BenchmarkTreeSet_Contains2/Preinsert_And_Random_100000-8     	     300	   4692655 ns/op
+BenchmarkTreeSet_Contains2/Preinsert_And_Random_10000000-8   	       1	2621763484 ns/op
+BenchmarkNativeMap_Contains2/Preinsert_And_Random_1000-8     	   30000	     49921 ns/op
+BenchmarkNativeMap_Contains2/Preinsert_And_Random_100000-8   	     200	   6203695 ns/op
+BenchmarkNativeMap_Contains2/Preinsert_And_Random_10000000-8 	       1	2805546618 ns/op
+BenchmarkTreeSet_Remove/Preinsert_And_Rotate_1000-8          	50000000	        39.8 ns/op
+BenchmarkTreeSet_Remove/Preinsert_And_Rotate_100000-8        	30000000	        50.2 ns/op
+BenchmarkTreeSet_Remove/Preinsert_And_Rotate_10000000-8      	30000000	        52.8 ns/op
+BenchmarkNativeMap_Remove/Preinsert_And_Rotate_1000-8        	30000000	        41.8 ns/op
+BenchmarkNativeMap_Remove/Preinsert_And_Rotate_100000-8      	30000000	        55.7 ns/op
+BenchmarkNativeMap_Remove/Preinsert_And_Rotate_10000000-8    	20000000	       125 ns/op
+BenchmarkTreeSet_LowerBound/Preinsert_And_Rotate_1000-8      	 5000000	       265 ns/op
+BenchmarkTreeSet_LowerBound/Preinsert_And_Rotate_100000-8    	 3000000	       582 ns/op
+BenchmarkTreeSet_LowerBound/Preinsert_And_Rotate_10000000-8  	 1000000	      1123 ns/op
+BenchmarkTreeSet_LowerBound2/Preinsert_And_Random_1000-8     	 5000000	       311 ns/op
+BenchmarkTreeSet_LowerBound2/Preinsert_And_Random_100000-8   	 1000000	      1107 ns/op
+BenchmarkTreeSet_LowerBound2/Preinsert_And_Random_10000000-8 	  500000	      3671 ns/op
+BenchmarkTreeSet_UpperBound/Preinsert_And_Rotate_1000-8      	 5000000	       306 ns/op
+BenchmarkTreeSet_UpperBound/Preinsert_And_Rotate_100000-8    	 2000000	       630 ns/op
+BenchmarkTreeSet_UpperBound/Preinsert_And_Rotate_10000000-8  	 1000000	      1189 ns/op
+BenchmarkTreeSet_UpperBound2/Preinsert_And_Random_1000-8     	 5000000	       365 ns/op
+BenchmarkTreeSet_UpperBound2/Preinsert_And_Random_100000-8   	 1000000	      1186 ns/op
+BenchmarkTreeSet_UpperBound2/Preinsert_And_Random_10000000-8 	  500000	      3780 ns/op
+BenchmarkTreeSet_Kth/Preinsert_And_Rotate_1000-8             	30000000	        43.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTreeSet_Kth/Preinsert_And_Rotate_100000-8           	30000000	        56.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTreeSet_Kth/Preinsert_And_Rotate_10000000-8         	20000000	        67.8 ns/op	       0 B/op	       0 allocs/op
+
+--- BENCH: BenchmarkTreeSet_GCTime
+    treeset_test.go:465: N - 1000, total nodes - 68, calculated bytes used - 2272, GC time - 103.37µs, GCStats.pause - 6.496044584s
+    treeset_test.go:465: N - 10000, total nodes - 669, calculated bytes used - 21688, GC time - 106.896µs, GCStats.pause - 6.645006294s
+    treeset_test.go:465: N - 100000, total nodes - 6669, calculated bytes used - 213688, GC time - 261.804µs, GCStats.pause - 6.661724443s
+    treeset_test.go:465: N - 1000000, total nodes - 66669, calculated bytes used - 2133688, GC time - 272.883µs, GCStats.pause - 6.661981897s
+    treeset_test.go:465: N - 10000000, total nodes - 666669, calculated bytes used - 21333688, GC time - 1.793251ms, GCStats.pause - 6.662204398s
+    treeset_test.go:465: N - 100000000, total nodes - 6666669, calculated bytes used - 213333688, GC time - 19.135865ms, GCStats.pause - 6.662280937s
+
+--- BENCH: BenchmarkNativeMap_GCTime
+    treeset_test.go:490: N - 1000, GC time - 105.204µs, GCStats.pause - 7.528593606s
+    treeset_test.go:490: N - 10000, GC time - 112.562µs, GCStats.pause - 7.592669119s
+    treeset_test.go:490: N - 100000, GC time - 155.425µs, GCStats.pause - 7.604522388s
+    treeset_test.go:490: N - 1000000, GC time - 271.03µs, GCStats.pause - 7.605102855s
+    treeset_test.go:490: N - 10000000, GC time - 726.561µs, GCStats.pause - 7.60521031s
+    treeset_test.go:490: N - 100000000, GC time - 12.768391ms, GCStats.pause - 7.605372937s
