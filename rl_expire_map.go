@@ -186,7 +186,7 @@ func (rl *rlExpireMap) SetEx(key interface{}, value interface{}, due time.Time) 
 func (rl *rlExpireMap) GetAll() []KeyValue {
 	rl.RLock()
 	if rl.Stopped() {
-		rl.Unlock()
+		rl.RUnlock()
 		return nil
 	}
 	sz := rl.indices.Size()
