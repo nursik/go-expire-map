@@ -184,10 +184,11 @@ func (rl *rlExpireMap) SetEx(key interface{}, value interface{}, due time.Time) 
 }
 
 func (rl *rlExpireMap) GetAll() []KeyValue {
+	rl.RLock()
 	if rl.Stopped() {
+		rl.Unlock()
 		return nil
 	}
-	rl.RLock()
 	sz := rl.indices.Size()
 	ans := make([]KeyValue, 0, sz)
 	curtime := rl.Curtime()
