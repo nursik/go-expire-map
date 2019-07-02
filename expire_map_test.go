@@ -27,7 +27,6 @@ func TestExpireMap_Get(t *testing.T) {
 	}
 	// End of test 1
 
-
 	// Test 2 - Test multiple gets
 	ttl := time.Now().Add(time.Second)
 
@@ -66,7 +65,6 @@ func TestExpireMap_SetEx(t *testing.T) {
 	}
 	// End of test 1
 
-
 	// Test 2 - Test multiple sets - check that multiple sets work
 	ttl = time.Now().Add(10 * time.Second)
 
@@ -81,7 +79,7 @@ func TestExpireMap_SetEx(t *testing.T) {
 	}
 
 	for i := 0; i < 50000; i++ {
-		expireMap.SetEx(i + 50000, i + 50000, ttl)
+		expireMap.SetEx(i+50000, i+50000, ttl)
 	}
 
 	for i := 0; i < 100000; i++ {
@@ -91,14 +89,13 @@ func TestExpireMap_SetEx(t *testing.T) {
 	}
 	// End of test 2
 
-
 	// Test 3 - check that SetEx updates values
 	for i := 0; i < 100000; i++ {
-		expireMap.SetEx(i, i + 10000, ttl)
+		expireMap.SetEx(i, i+10000, ttl)
 	}
 
 	for i := 0; i < 100000; i++ {
-		if v, ok := expireMap.Get(i); !ok || v != i + 10000 {
+		if v, ok := expireMap.Get(i); !ok || v != i+10000 {
 			t.Error("SetEx() - no key or wrong value")
 		}
 	}
@@ -126,7 +123,7 @@ func TestExpireMap_TTL(t *testing.T) {
 	}
 }
 
-func TestExpireMap_Size(t  *testing.T) {
+func TestExpireMap_Size(t *testing.T) {
 	expireMap := New()
 	defer expireMap.Close()
 	// Test 1 - Check that initial size is zero
@@ -134,7 +131,6 @@ func TestExpireMap_Size(t  *testing.T) {
 		t.Errorf("Size() - got %v, want %v", sz, 0)
 	}
 	// End of test 1
-
 
 	// Test 2 - Check that Size() call's return value
 	// is the same as an amount of unique inserted keys
@@ -155,7 +151,6 @@ func TestExpireMap_Size(t  *testing.T) {
 	if sz := expireMap.Size(); sz != 100000 {
 		t.Errorf("Size() - got %v, want %v", sz, 100000)
 	}
-
 
 	// Test 2 continued - Check that after some time size still returns
 	// the same value, as no methods altering map are called
@@ -186,7 +181,7 @@ func TestExpireMap_Size(t  *testing.T) {
 		t.Errorf("Size() - got %v, want %v", sz, 100000)
 	}
 
-	ttl = time.Now().Add( -sleepTimeForExp)
+	ttl = time.Now().Add(-sleepTimeForExp)
 
 	for i := 0; i < 100000; i++ {
 		expireMap.Expire(i, ttl)
@@ -223,7 +218,7 @@ func TestExpireMap_Expire(t *testing.T) {
 
 	time.Sleep(timeResolution + sleepTimeForExp)
 
-	if v, ok := expireMap.Get("key"); ok || v != nil{
+	if v, ok := expireMap.Get("key"); ok || v != nil {
 		t.Error("Expire() - should not get a value by the key")
 	}
 	expireMap.SetEx("key", "value", ttl)
@@ -232,11 +227,11 @@ func TestExpireMap_Expire(t *testing.T) {
 		t.Error("Expire() - should get a value by the key")
 	}
 
-	if v, ok = expireMap.Expire("key", time.Now().Add(- 2 *timeResolution)); v != nil || ok {
+	if v, ok = expireMap.Expire("key", time.Now().Add(- 2*timeResolution)); v != nil || ok {
 		t.Error("Expire() - should return nil, false")
 	}
 
-	if v, ok := expireMap.Get("key"); ok || v != nil{
+	if v, ok := expireMap.Get("key"); ok || v != nil {
 		t.Error("Expire() - should not get a value by the key")
 	}
 
@@ -255,7 +250,7 @@ func TestExpireMap_Expire(t *testing.T) {
 	ttl = time.Now().Add(time.Second)
 
 	for i := 0; i < 100000; i++ {
-		if i % 2 == 0 {
+		if i%2 == 0 {
 			if v, ok = expireMap.Expire(i, ttl); !ok || v != i {
 				t.Errorf("Expire() - should return %d, true", i)
 			}
@@ -268,7 +263,7 @@ func TestExpireMap_Expire(t *testing.T) {
 	}
 	time.Sleep(time.Second + sleepTimeForExp)
 	for i := 0; i < 100000; i += 2 {
-		if v, ok = expireMap.Expire(i, ttl); v!=nil || ok {
+		if v, ok = expireMap.Expire(i, ttl); v != nil || ok {
 			t.Error("Expire() - should return nil, false")
 		}
 	}
@@ -291,12 +286,12 @@ func TestExpireMap_Delete(t *testing.T) {
 	for i := 0; i < 100000; i++ {
 		expireMap.SetEx(i, i, ttl)
 	}
-	for i := 0; i < 100000; i+=2 {
+	for i := 0; i < 100000; i += 2 {
 		expireMap.Delete(i)
 		expireMap.Delete(i)
 		expireMap.Delete(i)
 	}
-	for i := 0; i < 100000; i+=2 {
+	for i := 0; i < 100000; i += 2 {
 		if _, ok := expireMap.Get(i); ok {
 			t.Error("Delete() - did not delete a key")
 		}
@@ -354,13 +349,12 @@ func TestExpireMap_Curtime(t *testing.T) {
 	}
 	ticker.Stop()
 
-	if totalDiff > tickerCalls * int64(maxAverageDiff) {
-		t.Errorf("Curtime() - average diff exceeded: max average diff %.3f, average diff %.3f (in nanosecs)", float64(maxAverageDiff), float64(totalDiff) / float64(tickerCalls))
+	if totalDiff > tickerCalls*int64(maxAverageDiff) {
+		t.Errorf("Curtime() - average diff exceeded: max average diff %.3f, average diff %.3f (in nanosecs)", float64(maxAverageDiff), float64(totalDiff)/float64(tickerCalls))
 		return
 	}
-	t.Logf("Curtime() - average diff %.3f, max diff %d (in nanosecs)", float64(totalDiff) / float64(tickerCalls), maxDiff)
+	t.Logf("Curtime() - average diff %.3f, max diff %d (in nanosecs)", float64(totalDiff)/float64(tickerCalls), maxDiff)
 }
-
 
 func TestExpireMap_Curtime_WithHeavyLoad(t *testing.T) {
 	expireMap := New()
@@ -381,15 +375,15 @@ func TestExpireMap_Curtime_WithHeavyLoad(t *testing.T) {
 			r := rand.Int()
 			ttlDiff := time.Duration(rand.Intn(100)) * testDuration / 100
 
-			switch r%4 {
+			switch r % 4 {
 			case 0:
-				_, _ = expireMap.Get(r%N)
+				_, _ = expireMap.Get(r % N)
 			case 1:
-				_, _ = expireMap.Get(r%N)
+				_, _ = expireMap.Get(r % N)
 			case 2:
 				expireMap.SetEx(r%N, r%N, startTime.Add(ttlDiff))
 			case 3:
-				expireMap.Delete(r%N)
+				expireMap.Delete(r % N)
 			default:
 				continue
 			}
@@ -418,11 +412,11 @@ func TestExpireMap_Curtime_WithHeavyLoad(t *testing.T) {
 	ticker.Stop()
 	expireMap.Close()
 
-	if totalDiff > tickerCalls * int64(maxAverageDiff) {
-		t.Errorf("Curtime() - average diff exceeded: max average diff %.3f, average diff %.3f (in nanosecs)", float64(maxAverageDiff), float64(totalDiff) / float64(tickerCalls))
+	if totalDiff > tickerCalls*int64(maxAverageDiff) {
+		t.Errorf("Curtime() - average diff exceeded: max average diff %.3f, average diff %.3f (in nanosecs)", float64(maxAverageDiff), float64(totalDiff)/float64(tickerCalls))
 		return
 	}
-	t.Logf("CurtimeWithHeavyLoad() - number of map method calls %v, average diff %.3f, max diff %d (in nanosecs)", i, float64(totalDiff) / float64(tickerCalls), maxDiff)
+	t.Logf("CurtimeWithHeavyLoad() - number of map method calls %v, average diff %.3f, max diff %d (in nanosecs)", i, float64(totalDiff)/float64(tickerCalls), maxDiff)
 }
 
 func TestExpireMap_GetAll(t *testing.T) {
@@ -460,7 +454,6 @@ func TestExpireMap_GetAll(t *testing.T) {
 	}
 	// End of test 1
 
-
 	// Test 2 - Test that it returns only non expired keys
 	time.Sleep(time.Second + sleepTimeForExp)
 
@@ -486,4 +479,3 @@ func TestExpireMap_GetAll(t *testing.T) {
 	}
 	// End of test 2
 }
-

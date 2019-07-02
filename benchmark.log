@@ -1,28 +1,39 @@
+-- Insert into empty map
 BenchmarkSetEx/N_1000-8  	    5000	    280637 ns/op
 BenchmarkSetEx/N_10000-8 	     500	   3508987 ns/op
 BenchmarkSetEx/N_100000-8         	      50	  30166311 ns/op
 BenchmarkSetEx/N_1000000-8        	       2	 504106595 ns/op
 BenchmarkSetEx/N_10000000-8       	       1	5719166290 ns/op
+
+-- Update values
 BenchmarkSetEx2/N_1000-8          	   10000	    101355 ns/op
 BenchmarkSetEx2/N_10000-8         	    2000	   1087537 ns/op
 BenchmarkSetEx2/N_100000-8        	     100	  12176217 ns/op
 BenchmarkSetEx2/N_1000000-8       	      10	 181986954 ns/op
 BenchmarkSetEx2/N_10000000-8      	       1	2010988567 ns/op
+
+-- Delete keys
 BenchmarkDelete/N_1000-8          	   10000	    132353 ns/op
 BenchmarkDelete/N_10000-8         	    1000	   1336658 ns/op
 BenchmarkDelete/N_100000-8        	     100	  15115780 ns/op
 BenchmarkDelete/N_1000000-8       	       5	 213933627 ns/op
 BenchmarkDelete/N_10000000-8      	       1	2328046610 ns/op
+
+-- Update TTL
 BenchmarkExpire/N_1000-8          	   20000	     67902 ns/op
 BenchmarkExpire/N_10000-8         	    2000	    730212 ns/op
 BenchmarkExpire/N_100000-8        	     200	   8269106 ns/op
 BenchmarkExpire/N_1000000-8       	      10	 141945344 ns/op
 BenchmarkExpire/N_10000000-8      	       1	1567154547 ns/op
+
+-- Remove key using Expire()
 BenchmarkExpire2/N_1000-8         	   10000	    135815 ns/op
 BenchmarkExpire2/N_10000-8        	    1000	   1373719 ns/op
 BenchmarkExpire2/N_100000-8       	     100	  15500577 ns/op
 BenchmarkExpire2/N_1000000-8      	       5	 217030642 ns/op
 BenchmarkExpire2/N_10000000-8     	       1	2371939736 ns/op
+
+-- Benchmarks for Get(), when there are already expired keys
 BenchmarkGet/N_1000_Exp_50%-8     	   10000	    308436 ns/op
 BenchmarkGet/N_1000_Exp_33%-8     	   10000	    295040 ns/op
 BenchmarkGet/N_1000_Exp_25%-8     	    5000	    264687 ns/op
@@ -53,6 +64,9 @@ BenchmarkGet/N_10000000_Exp_25%-8 	       1	1883309284 ns/op
 BenchmarkGet/N_10000000_Exp_20%-8 	       1	1805096119 ns/op
 BenchmarkGet/N_10000000_Exp_10%-8 	       1	1644094064 ns/op
 BenchmarkGet/N_10000000_Exp_0%-8  	       1	1468080110 ns/op
+
+-- N_X_Rn_Y_Wn_Z - Benchmarks with Y reader goroutines, Z writer goroutines with 0 <= key < X
+-- Every goroutine performs 100000 random map's method calls. See source code
 BenchmarkRWParallel/N_1000_Rn_1_Wn_1_Steps_100000-8         	      20	  76799969 ns/op
 BenchmarkRWParallel/N_1000_Rn_1_Wn_2_Steps_100000-8         	      10	 115137870 ns/op
 BenchmarkRWParallel/N_1000_Rn_2_Wn_1_Steps_100000-8         	      20	  82451946 ns/op
@@ -83,6 +97,9 @@ BenchmarkRWParallel/N_10000000_Rn_2_Wn_1_Steps_100000-8     	      20	 102810870
 BenchmarkRWParallel/N_10000000_Rn_2_Wn_2_Steps_100000-8     	      10	 172203472 ns/op
 BenchmarkRWParallel/N_10000000_Rn_4_Wn_1_Steps_100000-8     	      10	 154216811 ns/op
 BenchmarkRWParallel/N_10000000_Rn_4_Wn_2_Steps_100000-8     	      10	 205960274 ns/op
+
+-- The same as previous benchmarks, except that TTL is small (10ms). So there are more Locks
+-- as active and passive expires occur
 BenchmarkRWParallel2/N_1000_Rn_1_Wn_1_Steps_100000-8        	      20	  91512215 ns/op
 BenchmarkRWParallel2/N_1000_Rn_1_Wn_2_Steps_100000-8        	      10	 113077742 ns/op
 BenchmarkRWParallel2/N_1000_Rn_2_Wn_1_Steps_100000-8        	      20	  82483454 ns/op

@@ -40,29 +40,30 @@ import (
 	"sync/atomic"
 	"time"
 )
+
 // time interval for updating curtime variable
 const timeResolution = time.Millisecond
+
 // time interval for calling randomExpire and rotateExpire methods
 const expireInterval = 100 * time.Millisecond
 
-
 type KeyValue struct {
-	Key interface{}
+	Key   interface{}
 	Value interface{}
 }
 
 type item struct {
-	ttl int64
-	key interface{}
+	ttl   int64
+	key   interface{}
 	value interface{}
 }
 
 const pageBitSize = 10
-const pageSize = 1<< pageBitSize
+const pageSize = 1 << pageBitSize
 const pagesPerMap = 1000000
 
 type page struct {
-	size int
+	size   int
 	values [pageSize]item
 }
 
@@ -76,7 +77,7 @@ func (ps *pages) put(index uint64, v item) {
 		ps.pages[bucket] = &page{}
 	}
 	page := ps.pages[bucket]
-	page.values[index&(1<<pageBitSize- 1)] = v
+	page.values[index&(1<<pageBitSize-1)] = v
 	page.size++
 }
 
@@ -91,25 +92,23 @@ func (ps *pages) remove(index uint64) {
 
 func (ps *pages) get(index uint64) item {
 	bucket := index >> pageBitSize
-	return ps.pages[bucket].values[index&(1<<pageBitSize- 1)]
+	return ps.pages[bucket].values[index&(1<<pageBitSize-1)]
 }
 
 type ExpireMap struct {
-	keys map[interface{}]uint64
-	values *pages
+	keys    map[interface{}]uint64
+	values  *pages
 	indices orderedset.OrderedSet
-	mutex sync.RWMutex
+	mutex   sync.RWMutex
 	stopped int64
 	curtime int64
 }
 
-/*
-	Expire updates ttl for the given key. If ttl was successfully updated,
-	it returns value and "true". It happens, if and only if key presents
-	in the map and due variable is greater than curtime. In any other
-	case it returns nil and "false". Also, if due variable is less than
-	curtime, it just removes a key.
- */
+// Expire updates ttl for the given key. If ttl was successfully updated,
+// it returns value and "true". It happens, if and only if key presents
+// in the map and due variable is greater than curtime. In any other
+// case it returns nil and "false". Also, if due variable is less than
+// curtime, it just removes a key.
 func (emp *ExpireMap) Expire(key interface{}, due time.Time) (interface{}, bool) {
 	ttl := due.UnixNano()
 	if ttl <= emp.Curtime() {
@@ -138,15 +137,13 @@ func (emp *ExpireMap) Expire(key interface{}, due time.Time) (interface{}, bool)
 	return v.value, true
 }
 
-/*
-	Get returns value for the given key. If map does not contain
-	such key or key is expired, it returns nil and "false". If key is
-	expired it waits for write lock, checks a ttl again (as during wait of
-	write lock, value and ttl could be updated) and if it is still expired,
-	removes the given key (otherwise it returns a value and "true"). So basically,
-	with increase of the number of hits to expired key, performance of Get method
-	lowers.
- */
+// Get returns value for the given key. If map does not contain
+// such key or key is expired, it returns nil and "false". If key is
+// expired it waits for write lock, checks a ttl again (as during wait of
+// write lock, value and ttl could be updated) and if it is still expired,
+// removes the given key (otherwise it returns a value and "true"). So basically,
+// with increase of the number of hits to expired key, performance of Get method
+// lowers.
 func (emp *ExpireMap) Get(key interface{}) (interface{}, bool) {
 	emp.mutex.RLock()
 	if emp.Stopped() {
@@ -180,11 +177,11 @@ func (emp *ExpireMap) Get(key interface{}) (interface{}, bool) {
 	if v.ttl > emp.Curtime() {
 		emp.mutex.Unlock()
 		return v.value, true
-	} else {
-		emp.del(key, id)
-		emp.mutex.Unlock()
-		return nil, false
 	}
+
+	emp.del(key, id)
+	emp.mutex.Unlock()
+	return nil, false
 }
 
 // TTL returns ttl for the given key as Unix nanoseconds, if it is not expired
@@ -209,9 +206,7 @@ func (emp *ExpireMap) TTL(key interface{}) int64 {
 	return 0
 }
 
-/*
-	Delete removes key from the map.
- */
+// Delete removes key from the map.
 func (emp *ExpireMap) Delete(key interface{}) {
 	emp.mutex.Lock()
 	if emp.Stopped() {
@@ -227,9 +222,7 @@ func (emp *ExpireMap) Delete(key interface{}) {
 	emp.mutex.Unlock()
 }
 
-/*
-	Close stops internal goroutines and removes all internal structures.
- */
+// Close stops internal goroutines and removes all internal structures.
 func (emp *ExpireMap) Close() {
 	emp.mutex.Lock()
 	if emp.Stopped() == false {
@@ -241,9 +234,7 @@ func (emp *ExpireMap) Close() {
 	emp.mutex.Unlock()
 }
 
-/*
-	SetEx sets or updates value and ttl for the given key
- */
+// SetEx sets or updates value and ttl for the given key
 func (emp *ExpireMap) SetEx(key interface{}, value interface{}, due time.Time) {
 	ttl := due.UnixNano()
 	if ttl <= emp.Curtime() {
@@ -257,9 +248,9 @@ func (emp *ExpireMap) SetEx(key interface{}, value interface{}, due time.Time) {
 
 	if id, ok := emp.keys[key]; ok {
 		emp.values.put(id, item{
-			key: key,
+			key:   key,
 			value: value,
-			ttl: ttl,
+			ttl:   ttl,
 		})
 	} else {
 		id := emp.indices.LowestUnused()
@@ -274,11 +265,9 @@ func (emp *ExpireMap) SetEx(key interface{}, value interface{}, due time.Time) {
 	emp.mutex.Unlock()
 }
 
-/*
-	GetAll returns a slice of KeyValue. It guarantees that all
-	keys are presented in the map and were not expired at the moment
-	of method call.
- */
+// GetAll returns a slice of KeyValue. It guarantees that all
+// keys are presented in the map and were not expired at the moment
+// of method call.
 func (emp *ExpireMap) GetAll() []KeyValue {
 	emp.mutex.RLock()
 	if emp.Stopped() {
@@ -312,11 +301,9 @@ func (emp *ExpireMap) Stopped() bool {
 	return atomic.LoadInt64(&emp.stopped) == 1
 }
 
-/*
-	Curtime returns Unix nanoseconds. You may use it instead of calling time.Now().UnixNano().
-	The average difference between the value and real time.Now is less than timeResolution,
-	which is 1 millisecond, but sometimes difference may be up to 4 milliseconds.
- */
+// Curtime returns Unix nanoseconds. You may use it instead of calling time.Now().UnixNano().
+// The average difference between the value and real time.Now is less than timeResolution,
+// which is 1 millisecond, but sometimes difference may be up to 4 milliseconds.
 func (emp *ExpireMap) Curtime() int64 {
 	return atomic.LoadInt64(&emp.curtime)
 }
@@ -359,19 +346,17 @@ func (emp *ExpireMap) randomExpire() bool {
 		}
 	}
 
-	if expiredFound * 4 >= totalChecks {
+	if expiredFound*4 >= totalChecks {
 		return true
 	}
 	return false
 }
 
-/*
-	rotateExpire checks keys sequentially for expiration.
-	Some keys may live too long, because randomExpire cannot hit them, and
-	that's why this method was written. Basically, it iterates over 20 keys
-	and checks them. The passed variable is k-th key, which previously was
-	checked.
-  */
+// rotateExpire checks keys sequentially for expiration.
+// Some keys may live too long, because randomExpire cannot hit them, and
+// that's why this method was written. Basically, it iterates over 20 keys
+// and checks them. The passed variable is k-th key, which previously was
+// checked.
 func (emp *ExpireMap) rotateExpire(kth int) int {
 	const totalChecks = 20
 	if emp.Stopped() {
@@ -402,7 +387,7 @@ func (emp *ExpireMap) rotateExpire(kth int) int {
 // second for expiration of keys. for loops with time.Sleep are used instead
 // of time tickers.
 func (emp *ExpireMap) start() {
-	go func(){
+	go func() {
 		for {
 			if emp.Stopped() {
 				break
@@ -439,9 +424,9 @@ func (emp *ExpireMap) start() {
 // New returns a new map.
 func New() *ExpireMap {
 	rl := &ExpireMap{
-		keys: make(map[interface{}]uint64),
+		keys:    make(map[interface{}]uint64),
 		indices: orderedset.NewTreeSet(),
-		values: &pages{},
+		values:  &pages{},
 		curtime: time.Now().UnixNano(),
 	}
 	rl.start()

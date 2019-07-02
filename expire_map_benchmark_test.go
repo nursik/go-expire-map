@@ -150,7 +150,7 @@ func BenchmarkGet(b *testing.B) {
 					runtime.GC()
 					expireMap := New()
 					for j := 0; j < pNN; j++ {
-						if j% kPP == 0 {
+						if j%kPP == 0 {
 							expireMap.SetEx(j, j, time.Now().Add(time.Millisecond))
 						} else {
 							expireMap.SetEx(j, j, ttl)
@@ -225,7 +225,7 @@ func BenchmarkRWParallel2(b *testing.B) {
 							go reader(expireMap, &wg, steps, pNN)
 						}
 						for j := 0; j < wNN; j++ {
-							go writer(expireMap, &wg, steps, pNN, time.Millisecond * 10)
+							go writer(expireMap, &wg, steps, pNN, time.Millisecond*10)
 						}
 						wg.Wait()
 					}
@@ -235,7 +235,6 @@ func BenchmarkRWParallel2(b *testing.B) {
 		}
 	}
 }
-
 
 func reader(expireMap *ExpireMap, wg *sync.WaitGroup, steps, N int) {
 	for steps >= 0 {
@@ -253,13 +252,13 @@ func writer(expireMap *ExpireMap, wg *sync.WaitGroup, steps, N int, ttlDiff time
 	for steps >= 0 {
 		steps--
 		r := rand.Int()
-		switch r%4 {
+		switch r % 4 {
 		case 3:
 			expireMap.SetEx(r%N, r%N, time.Now().Add(ttlDiff))
 		case 0:
 			expireMap.SetEx(r%N, r%N, time.Now().Add(ttlDiff))
 		case 1:
-			expireMap.Delete(r%N)
+			expireMap.Delete(r % N)
 		case 2:
 			expireMap.Expire(r%N, time.Now().Add(ttlDiff))
 		}
