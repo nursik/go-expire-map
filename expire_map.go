@@ -1,7 +1,7 @@
 // Copyright (c) 2019 Nursultan Zarlyk. All rights reserved.
 // Use of this source code is governed by the MIT License that can be found in the LICENSE file.
 
-// Package provides a thread-safe map with expiring keys.
+// Package expiremap provides a thread-safe map with expiring keys.
 // You must pay attention for these facts:
 // 		1) Current implementation may hold up to 1 billion keys
 // 		2) All methods use Curtime() and it differs from time.Now() - average difference
@@ -47,6 +47,7 @@ const timeResolution = time.Millisecond
 // time interval for calling randomExpire and rotateExpire methods
 const expireInterval = 100 * time.Millisecond
 
+// KeyValue is used only for GetAll method
 type KeyValue struct {
 	Key   interface{}
 	Value interface{}
@@ -95,6 +96,7 @@ func (ps *pages) get(index uint64) item {
 	return ps.pages[bucket].values[index&(1<<pageBitSize-1)]
 }
 
+// ExpireMap stores keys and corresponding values and TTLs.
 type ExpireMap struct {
 	keys    map[interface{}]uint64
 	values  *pages

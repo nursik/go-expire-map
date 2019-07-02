@@ -140,17 +140,17 @@ func BenchmarkGet(b *testing.B) {
 	ttl := time.Now().Add(time.Hour)
 
 	for _, pN := range presetN {
-		for _, kP := range expiredRotation {
+		for _, eP := range expiredRotation {
 			pNN := pN
-			kPP := kP
-			ratio := strconv.Itoa(100 / kPP)
+			ePP := eP
+			ratio := strconv.Itoa(100 / ePP)
 			b.Run(fmt.Sprintf("N_%d_Exp_%s%%", pNN, ratio), func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
 					b.StopTimer()
 					runtime.GC()
 					expireMap := New()
 					for j := 0; j < pNN; j++ {
-						if j%kPP == 0 {
+						if j%ePP == 0 {
 							expireMap.SetEx(j, j, time.Now().Add(time.Millisecond))
 						} else {
 							expireMap.SetEx(j, j, ttl)
@@ -160,7 +160,7 @@ func BenchmarkGet(b *testing.B) {
 					b.StartTimer()
 					for j := 0; j < pNN; j++ {
 						v, ok := expireMap.Get(j)
-						if j%kPP != 0 && (v != j || !ok) {
+						if j%ePP != 0 && (v != j || !ok) {
 							b.Error("did not got value or presence flag was false")
 							b.FailNow()
 						}

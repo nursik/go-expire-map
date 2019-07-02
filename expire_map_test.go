@@ -227,7 +227,7 @@ func TestExpireMap_Expire(t *testing.T) {
 		t.Error("Expire() - should get a value by the key")
 	}
 
-	if v, ok = expireMap.Expire("key", time.Now().Add(- 2*timeResolution)); v != nil || ok {
+	if v, ok = expireMap.Expire("key", time.Now().Add(-2*timeResolution)); v != nil || ok {
 		t.Error("Expire() - should return nil, false")
 	}
 
