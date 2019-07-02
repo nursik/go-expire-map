@@ -1,5 +1,6 @@
 # Go expire map
 [![GoDoc](https://godoc.org/github.com/nursik/go-expire-map?status.svg)](https://godoc.org/github.com/nursik/go-expire-map)
+[![Go Report Card](https://goreportcard.com/badge/github.com/nursik/go-expire-map)](https://goreportcard.com/report/github.com/nursik/go-expire-map)
 
 ## Quick start
 ```go
