@@ -11,7 +11,7 @@
 // 		Close() method is called
 // 		4) Every 100ms passive expiration occurs. It is done in two steps - first step is
 // 		inspired with algorithm used in Redis and second step is sequential expiration
-// 		5) It is guaranteed by sequential expiration, that no key will live more than
+// 		5) It is guaranteed by sequential expiration, that no expired key will live more than
 // 		map.Size() / 200 seconds
 // 		6) There is an active expiration. Any call of Get() and Expire() on expired keys,
 // 		removes them. Maybe in the future, TTL() will remove expired key too
@@ -26,6 +26,11 @@
 // 		we hit the bottom of the map, load top key of the map
 // 		2) Start from the key X and from that key expire 20 consecutive keys or stop if
 // 		we hit a bottom of the map
+//
+// It means that at maximum 2200 expires per second may occur (not counting active expiration).
+// If you have a lot of insertions with unique keys, but you rarely call methods Get and Expire
+// on these keys, your map will grow faster than expiration rate and you may hit 1 billion keys
+// limit.
 package expiremap
 
 import (
@@ -287,7 +292,7 @@ func (emp *ExpireMap) GetAll() []KeyValue {
 		id := emp.indices.Kth(i)
 		v := emp.values.get(id)
 		if v.ttl > curtime {
-			ans = append(ans, KeyValue{key: v.key, value: v.value})
+			ans = append(ans, KeyValue{Key: v.key, Value: v.value})
 		}
 	}
 	emp.RUnlock()
