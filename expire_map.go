@@ -98,7 +98,7 @@ type ExpireMap struct {
 	keys map[interface{}]uint64
 	values *pages
 	indices orderedset.OrderedSet
-	sync.RWMutex
+	mutex sync.RWMutex
 	stopped int64
 	curtime int64
 }
@@ -116,25 +116,25 @@ func (emp *ExpireMap) Expire(key interface{}, due time.Time) (interface{}, bool)
 		emp.Delete(key)
 		return nil, false
 	}
-	emp.Lock()
+	emp.mutex.Lock()
 	if emp.Stopped() {
-		emp.Unlock()
+		emp.mutex.Unlock()
 		return nil, false
 	}
 	id, ok := emp.keys[key]
 	if ok == false {
-		emp.Unlock()
+		emp.mutex.Unlock()
 		return nil, false
 	}
 	v := emp.values.get(id)
 	if v.ttl <= emp.Curtime() {
 		emp.del(key, id)
-		emp.Unlock()
+		emp.mutex.Unlock()
 		return nil, false
 	}
 	v.ttl = ttl
 	emp.values.put(id, v)
-	emp.Unlock()
+	emp.mutex.Unlock()
 	return v.value, true
 }
 
@@ -148,41 +148,41 @@ func (emp *ExpireMap) Expire(key interface{}, due time.Time) (interface{}, bool)
 	lowers.
  */
 func (emp *ExpireMap) Get(key interface{}) (interface{}, bool) {
-	emp.RLock()
+	emp.mutex.RLock()
 	if emp.Stopped() {
-		emp.RUnlock()
+		emp.mutex.RUnlock()
 		return nil, false
 	}
 	id, ok := emp.keys[key]
 	if ok == false {
-		emp.RUnlock()
+		emp.mutex.RUnlock()
 		return nil, false
 	}
 	v := emp.values.get(id)
 	if v.ttl > emp.Curtime() {
-		emp.RUnlock()
+		emp.mutex.RUnlock()
 		return v.value, true
 	}
-	emp.RUnlock()
-	emp.Lock()
+	emp.mutex.RUnlock()
+	emp.mutex.Lock()
 	if emp.Stopped() {
-		emp.Unlock()
+		emp.mutex.Unlock()
 		return nil, false
 	}
 
 	id, ok = emp.keys[key]
 	if ok == false {
-		emp.Unlock()
+		emp.mutex.Unlock()
 		return nil, false
 	}
 
 	v = emp.values.get(id)
 	if v.ttl > emp.Curtime() {
-		emp.Unlock()
+		emp.mutex.Unlock()
 		return v.value, true
 	} else {
 		emp.del(key, id)
-		emp.Unlock()
+		emp.mutex.Unlock()
 		return nil, false
 	}
 }
@@ -190,22 +190,22 @@ func (emp *ExpireMap) Get(key interface{}) (interface{}, bool) {
 // TTL returns ttl for the given key as Unix nanoseconds, if it is not expired
 // and exists in the map. Otherwise, it returns 0.
 func (emp *ExpireMap) TTL(key interface{}) int64 {
-	emp.RLock()
+	emp.mutex.RLock()
 	if emp.Stopped() {
-		emp.RUnlock()
+		emp.mutex.RUnlock()
 		return 0
 	}
 	id, ok := emp.keys[key]
 	if ok == false {
-		emp.RUnlock()
+		emp.mutex.RUnlock()
 		return 0
 	}
 	v := emp.values.get(id)
 	if v.ttl > emp.Curtime() {
-		emp.RUnlock()
+		emp.mutex.RUnlock()
 		return v.ttl
 	}
-	emp.RUnlock()
+	emp.mutex.RUnlock()
 	return 0
 }
 
@@ -213,32 +213,32 @@ func (emp *ExpireMap) TTL(key interface{}) int64 {
 	Delete removes key from the map.
  */
 func (emp *ExpireMap) Delete(key interface{}) {
-	emp.Lock()
+	emp.mutex.Lock()
 	if emp.Stopped() {
-		emp.Unlock()
+		emp.mutex.Unlock()
 		return
 	}
 	id, ok := emp.keys[key]
 	if ok == false {
-		emp.Unlock()
+		emp.mutex.Unlock()
 		return
 	}
 	emp.del(key, id)
-	emp.Unlock()
+	emp.mutex.Unlock()
 }
 
 /*
 	Close stops internal goroutines and removes all internal structures.
  */
 func (emp *ExpireMap) Close() {
-	emp.Lock()
+	emp.mutex.Lock()
 	if emp.Stopped() == false {
 		atomic.StoreInt64(&emp.stopped, 1)
 		emp.keys = nil
 		emp.values = nil
 		emp.indices = nil
 	}
-	emp.Unlock()
+	emp.mutex.Unlock()
 }
 
 /*
@@ -249,9 +249,9 @@ func (emp *ExpireMap) SetEx(key interface{}, value interface{}, due time.Time) {
 	if ttl <= emp.Curtime() {
 		return
 	}
-	emp.Lock()
+	emp.mutex.Lock()
 	if emp.Stopped() {
-		emp.Unlock()
+		emp.mutex.Unlock()
 		return
 	}
 
@@ -271,7 +271,7 @@ func (emp *ExpireMap) SetEx(key interface{}, value interface{}, due time.Time) {
 			ttl:   ttl,
 		})
 	}
-	emp.Unlock()
+	emp.mutex.Unlock()
 }
 
 /*
@@ -280,9 +280,9 @@ func (emp *ExpireMap) SetEx(key interface{}, value interface{}, due time.Time) {
 	of method call.
  */
 func (emp *ExpireMap) GetAll() []KeyValue {
-	emp.RLock()
+	emp.mutex.RLock()
 	if emp.Stopped() {
-		emp.RUnlock()
+		emp.mutex.RUnlock()
 		return nil
 	}
 	sz := emp.indices.Size()
@@ -295,15 +295,15 @@ func (emp *ExpireMap) GetAll() []KeyValue {
 			ans = append(ans, KeyValue{Key: v.key, Value: v.value})
 		}
 	}
-	emp.RUnlock()
+	emp.mutex.RUnlock()
 	return ans
 }
 
 // Size returns a number of keys in the map, both expired and unexpired.
 func (emp *ExpireMap) Size() int {
-	emp.RLock()
+	emp.mutex.RLock()
 	sz := len(emp.keys)
-	emp.RUnlock()
+	emp.mutex.RUnlock()
 	return sz
 }
 
@@ -355,6 +355,7 @@ func (emp *ExpireMap) randomExpire() bool {
 		v := emp.values.get(id)
 		if v.ttl <= emp.Curtime() {
 			emp.del(v.key, id)
+			expiredFound++
 		}
 	}
 
@@ -371,29 +372,30 @@ func (emp *ExpireMap) randomExpire() bool {
 	and checks them. The passed variable is k-th key, which previously was
 	checked.
   */
-func (emp *ExpireMap) rotateExpire(kth *int) {
+func (emp *ExpireMap) rotateExpire(kth int) int {
 	const totalChecks = 20
 	if emp.Stopped() {
-		return
+		return 0
 	}
 	sz := emp.indices.Size()
 	if sz == 0 {
-		return
+		return 0
 	}
-	if *kth >= sz || *kth <= 0 {
-		*kth = sz - 1
+	if kth >= sz || kth <= 0 {
+		kth = sz - 1
 	}
 	for i := 0; i < totalChecks; i++ {
-		id := emp.indices.Kth(*kth)
+		id := emp.indices.Kth(kth)
 		v := emp.values.get(id)
 		if v.ttl <= emp.Curtime() {
 			emp.del(v.key, id)
 		}
-		*kth--
-		if *kth < 0 {
+		kth--
+		if kth < 0 {
 			break
 		}
 	}
+	return kth
 }
 
 // start starts two goroutines - first for updating curtime variable and
@@ -418,16 +420,16 @@ func (emp *ExpireMap) start() {
 			}
 			start := time.Now()
 			for i := 0; i < 10; i++ {
-				emp.Lock()
+				emp.mutex.Lock()
 				if !emp.randomExpire() {
-					emp.Unlock()
+					emp.mutex.Unlock()
 					break
 				}
-				emp.Unlock()
+				emp.mutex.Unlock()
 			}
-			emp.Lock()
-			emp.rotateExpire(&kth)
-			emp.Unlock()
+			emp.mutex.Lock()
+			kth = emp.rotateExpire(kth)
+			emp.mutex.Unlock()
 			diff := time.Since(start)
 			time.Sleep(expireInterval - diff)
 		}
