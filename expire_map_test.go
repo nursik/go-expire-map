@@ -50,6 +50,34 @@ func TestExpireMap_Get(t *testing.T) {
 	// End of test 2
 }
 
+func TestExpireMap_Get2(t *testing.T) {
+	expireMap := New()
+	defer expireMap.Close()
+
+	ttl := time.Now().Add(time.Hour)
+	ar := make([]int, 3, 3)
+	ar[0] = 3
+
+	expireMap.Set(1, ar, ttl)
+	v, _ := expireMap.Get(1)
+
+	v.([]int)[0] = 4
+
+	if ar[0] != 4 {
+		t.Error("Get() - error with getting pointer")
+	}
+
+	x := 10
+	expireMap.Set(1, &x, ttl)
+	v, _ = expireMap.Get(1)
+
+	*v.(*int) = 11
+
+	if x != 11 {
+		t.Error("Get() - error with getting pointer")
+	}
+}
+
 func TestExpireMap_Set(t *testing.T) {
 	expireMap := New()
 	defer expireMap.Close()
