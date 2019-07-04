@@ -191,7 +191,7 @@ func (m *ExpireMap) Get(key interface{}) (interface{}, bool) {
 	return nil, false
 }
 
-// GetTTL returns ttl for the given key as Unix nanoseconds, if it is not expired
+// GetTTL returns ttl for the given key in nanoseconds, if it is not expired
 // and exists in the map. Otherwise, it returns 0.
 func (m *ExpireMap) GetTTL(key interface{}) int64 {
 	m.mutex.RLock()
