@@ -12,7 +12,7 @@ import (
 	"time"
 )
 func main() {
-	expireMap := expiremap.New()
+    expireMap := expiremap.New()
     // You must call Close(), when you do not need the map anymore
     defer expireMap.Close()
 
@@ -20,7 +20,7 @@ func main() {
     ttl := time.Unix(1735689600, 0)
     
     // Insert
-    expireMap.SetEx(1, 1, ttl)
+    expireMap.Set(1, 1, ttl)
 
     // Get value
     v, ok := expireMap.Get(1)
@@ -28,19 +28,19 @@ func main() {
     // Output 1 true
 
     // Get TTL
-    v = expireMap.TTL(1)
+    v = expireMap.GetTTL(1)
     fmt.Println(v)
     // Output 1735689600000000000
 
     // Update TTL
-    v, ok = expireMap.Expire(1, time.Now().Add(time.Second))
+    v, ok = expireMap.SetTTL(1, time.Now().Add(time.Second))
     fmt.Println(v, ok)
     // Output 1 true
 
     time.Sleep(time.Second + time.Millisecond)
 
     // Because key is already expired, it returns nil, false
-    v, ok = expireMap.Expire(1, ttl)
+    v, ok = expireMap.SetTTL(1, ttl)
     fmt.Println(v, ok)
     // Output nil false
 
@@ -53,6 +53,9 @@ func main() {
 ```
 
 ## Benchmarks
+Benchmarks are done on Asus ROG GL553V with:
+* CPU: Intel® Core™ i7-7700HQ CPU @ 2.80GHz × 8
+* RAM: DDR4 2400 SDRAM, 8 GB
 
 Every entry is nanoseconds per operation (benchmark output / N). N is number of keys
 
@@ -62,7 +65,7 @@ Every entry is nanoseconds per operation (benchmark output / N). N is number of 
 | **Update values**             | 101 | 109 | 122 | 182 | 201 |
 | **Delete keys**               | 132 | 134 | 151 | 214 | 233 |
 | **Update TTL**                |  68 | 73  | 83  | 142 | 157 |
-| **Remove key using Expire()** | 136 | 137 | 156 | 217 | 237 |
+| **Remove key using SetTTL()** | 136 | 137 | 156 | 217 | 237 |
 
 Benchmarks for Get(), when there are already expired keys
 

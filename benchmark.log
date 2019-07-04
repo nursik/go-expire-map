@@ -1,16 +1,16 @@
 -- Insert into empty map
-BenchmarkSetEx/N_1000-8  	    5000	    280637 ns/op
-BenchmarkSetEx/N_10000-8 	     500	   3508987 ns/op
-BenchmarkSetEx/N_100000-8         	      50	  30166311 ns/op
-BenchmarkSetEx/N_1000000-8        	       2	 504106595 ns/op
-BenchmarkSetEx/N_10000000-8       	       1	5719166290 ns/op
+BenchmarkExpireMap_Set/N_1000-8  	    5000	    280637 ns/op
+BenchmarkExpireMap_Set/N_10000-8 	     500	   3508987 ns/op
+BenchmarkExpireMap_Set/N_100000-8         	      50	  30166311 ns/op
+BenchmarkExpireMap_Set/N_1000000-8        	       2	 504106595 ns/op
+BenchmarkExpireMap_Set/N_10000000-8       	       1	5719166290 ns/op
 
 -- Update values
-BenchmarkSetEx2/N_1000-8          	   10000	    101355 ns/op
-BenchmarkSetEx2/N_10000-8         	    2000	   1087537 ns/op
-BenchmarkSetEx2/N_100000-8        	     100	  12176217 ns/op
-BenchmarkSetEx2/N_1000000-8       	      10	 181986954 ns/op
-BenchmarkSetEx2/N_10000000-8      	       1	2010988567 ns/op
+BenchmarkExpireMap_Set2/N_1000-8          	   10000	    101355 ns/op
+BenchmarkExpireMap_Set2/N_10000-8         	    2000	   1087537 ns/op
+BenchmarkExpireMap_Set2/N_100000-8        	     100	  12176217 ns/op
+BenchmarkExpireMap_Set2/N_1000000-8       	      10	 181986954 ns/op
+BenchmarkExpireMap_Set2/N_10000000-8      	       1	2010988567 ns/op
 
 -- Delete keys
 BenchmarkDelete/N_1000-8          	   10000	    132353 ns/op
@@ -20,18 +20,18 @@ BenchmarkDelete/N_1000000-8       	       5	 213933627 ns/op
 BenchmarkDelete/N_10000000-8      	       1	2328046610 ns/op
 
 -- Update TTL
-BenchmarkExpire/N_1000-8          	   20000	     67902 ns/op
-BenchmarkExpire/N_10000-8         	    2000	    730212 ns/op
-BenchmarkExpire/N_100000-8        	     200	   8269106 ns/op
-BenchmarkExpire/N_1000000-8       	      10	 141945344 ns/op
-BenchmarkExpire/N_10000000-8      	       1	1567154547 ns/op
+BenchmarkExpireMap_SetTTL/N_1000-8          	   20000	     67902 ns/op
+BenchmarkExpireMap_SetTTL/N_10000-8         	    2000	    730212 ns/op
+BenchmarkExpireMap_SetTTL/N_100000-8        	     200	   8269106 ns/op
+BenchmarkExpireMap_SetTTL/N_1000000-8       	      10	 141945344 ns/op
+BenchmarkExpireMap_SetTTL/N_10000000-8      	       1	1567154547 ns/op
 
--- Remove key using Expire()
-BenchmarkExpire2/N_1000-8         	   10000	    135815 ns/op
-BenchmarkExpire2/N_10000-8        	    1000	   1373719 ns/op
-BenchmarkExpire2/N_100000-8       	     100	  15500577 ns/op
-BenchmarkExpire2/N_1000000-8      	       5	 217030642 ns/op
-BenchmarkExpire2/N_10000000-8     	       1	2371939736 ns/op
+-- Remove key using SetTTL()
+BenchmarkExpireMap_SetTTL2/N_1000-8         	   10000	    135815 ns/op
+BenchmarkExpireMap_SetTTL2/N_10000-8        	    1000	   1373719 ns/op
+BenchmarkExpireMap_SetTTL2/N_100000-8       	     100	  15500577 ns/op
+BenchmarkExpireMap_SetTTL2/N_1000000-8      	       5	 217030642 ns/op
+BenchmarkExpireMap_SetTTL2/N_10000000-8     	       1	2371939736 ns/op
 
 -- Benchmarks for Get(), when there are already expired keys
 BenchmarkGet/N_1000_Exp_50%-8     	   10000	    308436 ns/op

@@ -4,17 +4,18 @@
 // Package expiremap provides a thread-safe map with expiring keys.
 // You must pay attention for these facts:
 // 		1) Current implementation may hold up to 1 billion keys
-// 		2) All methods use Curtime() and it differs from time.Now() - average difference
-// 		around 0.5 ms, max difference around 4 ms. So expire accuracy error is around 1 ms
+// 		2) All methods use Curtime() and it differs from time.Now() - Curtime() lags behind
+// 		time.Now() on average 0.5 ms and maximum 5 ms (see tests). So expire accuracy error
+// 		is around 1 ms
 // 		3) After creating a new map (calling New()), two goroutines are created - one
 // 		for updating curtime and another for deletion of expired keys. They exist until
 // 		Close() method is called
-// 		4) Every 100ms passive expiration occurs. It is done in two steps - first step is
-// 		inspired with algorithm used in Redis and second step is sequential expiration
+//		4) There are active and passive expirations. Active expiration is done during Get(),
+//		and SetTTL() calls. Passive expiration happens in background and is done by goroutine
+// 		4) Passive expiration occurs every 100ms. It is done in two steps - first step is
+// 		inspired by algorithm used in Redis and second step is sequential expiration
 // 		5) It is guaranteed by sequential expiration, that no expired key will live more than
 // 		map.Size() / 200 seconds
-// 		6) There is an active expiration. Any call of Get() and Expire() on expired keys,
-// 		removes them. Maybe in the future, TTL() will remove expired key too
 //
 // First step's (or random expire) algorithm is following:
 // 		1) Check the size of the map. If it is less than 100, just iterate over all keys
@@ -28,7 +29,7 @@
 // 		we hit a bottom of the map
 //
 // It means that at maximum 2200 expires per second may occur (not counting active expiration).
-// If you have a lot of insertions with unique keys, but you rarely call methods Get and Expire
+// If you have a lot of insertions with unique keys, but you rarely call methods Get and SetTTL
 // on these keys, your map will grow faster than expiration rate and you may hit 1 billion keys
 // limit.
 package expiremap
@@ -88,6 +89,8 @@ func (ps *pages) remove(index uint64) {
 	page.size--
 	if page.size == 0 {
 		ps.pages[bucket] = nil
+	} else {
+		ps.pages[bucket].values[index&(1<<pageBitSize-1)].value = nil
 	}
 }
 
@@ -106,12 +109,12 @@ type ExpireMap struct {
 	curtime int64
 }
 
-// Expire updates ttl for the given key. If ttl was successfully updated,
+// SetTTL updates ttl for the given key. If ttl was successfully updated,
 // it returns value and "true". It happens, if and only if key presents
 // in the map and due variable is greater than curtime. In any other
 // case it returns nil and "false". Also, if due variable is less than
 // curtime, it just removes a key.
-func (emp *ExpireMap) Expire(key interface{}, due time.Time) (interface{}, bool) {
+func (emp *ExpireMap) SetTTL(key interface{}, due time.Time) (interface{}, bool) {
 	ttl := due.UnixNano()
 	if ttl <= emp.Curtime() {
 		emp.Delete(key)
@@ -186,9 +189,9 @@ func (emp *ExpireMap) Get(key interface{}) (interface{}, bool) {
 	return nil, false
 }
 
-// TTL returns ttl for the given key as Unix nanoseconds, if it is not expired
+// GetTTL returns ttl for the given key as Unix nanoseconds, if it is not expired
 // and exists in the map. Otherwise, it returns 0.
-func (emp *ExpireMap) TTL(key interface{}) int64 {
+func (emp *ExpireMap) GetTTL(key interface{}) int64 {
 	emp.mutex.RLock()
 	if emp.Stopped() {
 		emp.mutex.RUnlock()
@@ -201,8 +204,9 @@ func (emp *ExpireMap) TTL(key interface{}) int64 {
 	}
 	v := emp.values.get(id)
 	if v.ttl > emp.Curtime() {
+		ttl := v.ttl
 		emp.mutex.RUnlock()
-		return v.ttl
+		return ttl
 	}
 	emp.mutex.RUnlock()
 	return 0
@@ -215,12 +219,9 @@ func (emp *ExpireMap) Delete(key interface{}) {
 		emp.mutex.Unlock()
 		return
 	}
-	id, ok := emp.keys[key]
-	if ok == false {
-		emp.mutex.Unlock()
-		return
+	if id, ok := emp.keys[key]; ok {
+		emp.del(key, id)
 	}
-	emp.del(key, id)
 	emp.mutex.Unlock()
 }
 
@@ -236,8 +237,8 @@ func (emp *ExpireMap) Close() {
 	emp.mutex.Unlock()
 }
 
-// SetEx sets or updates value and ttl for the given key
-func (emp *ExpireMap) SetEx(key interface{}, value interface{}, due time.Time) {
+// Set sets or updates value and ttl for the given key
+func (emp *ExpireMap) Set(key interface{}, value interface{}, due time.Time) {
 	ttl := due.UnixNano()
 	if ttl <= emp.Curtime() {
 		return
@@ -248,22 +249,17 @@ func (emp *ExpireMap) SetEx(key interface{}, value interface{}, due time.Time) {
 		return
 	}
 
-	if id, ok := emp.keys[key]; ok {
-		emp.values.put(id, item{
-			key:   key,
-			value: value,
-			ttl:   ttl,
-		})
-	} else {
-		id := emp.indices.LowestUnused()
+	id, ok := emp.keys[key]
+	if !ok {
+		id = emp.indices.LowestUnused()
 		emp.indices.Insert(id)
 		emp.keys[key] = id
-		emp.values.put(id, item{
-			key:   key,
-			value: value,
-			ttl:   ttl,
-		})
 	}
+	emp.values.put(id, item{
+		key:   key,
+		value: value,
+		ttl:   ttl,
+	})
 	emp.mutex.Unlock()
 }
 
@@ -298,18 +294,19 @@ func (emp *ExpireMap) Size() int {
 	return sz
 }
 
-// Stopped indicates if the map is stopped (not valid for future uses)
+// Stopped indicates that map is stopped
 func (emp *ExpireMap) Stopped() bool {
 	return atomic.LoadInt64(&emp.stopped) == 1
 }
 
 // Curtime returns Unix nanoseconds. You may use it instead of calling time.Now().UnixNano().
-// The average difference between the value and real time.Now is less than timeResolution,
-// which is 1 millisecond, but sometimes difference may be up to 4 milliseconds.
+// It lags behind time.Now() and on average difference is less than timeResolution,
+// which is 1 millisecond, but sometimes difference may be up to 5 milliseconds.
 func (emp *ExpireMap) Curtime() int64 {
 	return atomic.LoadInt64(&emp.curtime)
 }
 
+// del is helper method to delete key and associated id from the map
 func (emp *ExpireMap) del(key interface{}, id uint64) {
 	delete(emp.keys, key)
 	emp.values.remove(id)
@@ -320,7 +317,7 @@ func (emp *ExpireMap) del(key interface{}, id uint64) {
 // The common logic was inspired by Redis.
 func (emp *ExpireMap) randomExpire() bool {
 	const totalChecks = 20
-	const bruteForceThreshold = totalChecks * 5
+	const bruteForceThreshold = 100
 	if emp.Stopped() {
 		return false
 	}

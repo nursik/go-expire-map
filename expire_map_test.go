@@ -14,7 +14,7 @@ func TestExpireMap_Get(t *testing.T) {
 	defer expireMap.Close()
 	// Test 1 - Test basic get - check that it returns a proper value
 	// and does not return an expired key
-	expireMap.SetEx("key", "value", time.Now().Add(time.Second))
+	expireMap.Set("key", "value", time.Now().Add(time.Second))
 
 	if v, ok := expireMap.Get("key"); !ok || v != "value" {
 		t.Error("Get() - no key or wrong value")
@@ -31,7 +31,7 @@ func TestExpireMap_Get(t *testing.T) {
 	ttl := time.Now().Add(time.Second)
 
 	for i := 0; i < 100000; i++ {
-		expireMap.SetEx(i, i, ttl)
+		expireMap.Set(i, i, ttl)
 	}
 
 	for i := 0; i < 100000; i++ {
@@ -50,18 +50,18 @@ func TestExpireMap_Get(t *testing.T) {
 	// End of test 2
 }
 
-func TestExpireMap_SetEx(t *testing.T) {
+func TestExpireMap_Set(t *testing.T) {
 	expireMap := New()
 	defer expireMap.Close()
-	// Test 1 - Test that SetEx stores ttl properly
+	// Test 1 - Test that Set stores ttl properly
 	ttl := time.Now().Add(time.Second)
 
-	expireMap.SetEx("key", "value", ttl)
+	expireMap.Set("key", "value", ttl)
 
 	time.Sleep(time.Second + sleepTimeForExp)
 
 	if v, ok := expireMap.Get("key"); ok || v != nil {
-		t.Error("SetEx() - ttl is not set properly")
+		t.Error("Set() - ttl is not set properly")
 	}
 	// End of test 1
 
@@ -69,57 +69,57 @@ func TestExpireMap_SetEx(t *testing.T) {
 	ttl = time.Now().Add(10 * time.Second)
 
 	for i := 0; i < 50000; i++ {
-		expireMap.SetEx(i, i, ttl)
+		expireMap.Set(i, i, ttl)
 	}
 
 	for i := 0; i < 50000; i++ {
 		if v, ok := expireMap.Get(i); !ok || v != i {
-			t.Error("SetEx() - no key or wrong value")
+			t.Error("Set() - no key or wrong value")
 		}
 	}
 
 	for i := 0; i < 50000; i++ {
-		expireMap.SetEx(i+50000, i+50000, ttl)
+		expireMap.Set(i+50000, i+50000, ttl)
 	}
 
 	for i := 0; i < 100000; i++ {
 		if v, ok := expireMap.Get(i); !ok || v != i {
-			t.Error("SetEx() - no key or wrong value")
+			t.Error("Set() - no key or wrong value")
 		}
 	}
 	// End of test 2
 
-	// Test 3 - check that SetEx updates values
+	// Test 3 - check that Set updates values
 	for i := 0; i < 100000; i++ {
-		expireMap.SetEx(i, i+10000, ttl)
+		expireMap.Set(i, i+10000, ttl)
 	}
 
 	for i := 0; i < 100000; i++ {
 		if v, ok := expireMap.Get(i); !ok || v != i+10000 {
-			t.Error("SetEx() - no key or wrong value")
+			t.Error("Set() - no key or wrong value")
 		}
 	}
 	// End of test 3
 }
 
-func TestExpireMap_TTL(t *testing.T) {
+func TestExpireMap_GetTTL(t *testing.T) {
 	expireMap := New()
 	defer expireMap.Close()
 
-	if v := expireMap.TTL(1); v != 0 {
-		t.Error("TTL() - got non zero ttl for non existing key")
+	if v := expireMap.GetTTL(1); v != 0 {
+		t.Error("GetTTL() - got non zero ttl for non existing key")
 	}
 	ttl := time.Now().Add(time.Second)
-	expireMap.SetEx(1, 1, ttl)
+	expireMap.Set(1, 1, ttl)
 
-	if v := expireMap.TTL(1); v != ttl.UnixNano() {
-		t.Error("TTL() - got wrong ttl")
+	if v := expireMap.GetTTL(1); v != ttl.UnixNano() {
+		t.Error("GetTTL() - got wrong ttl")
 	}
 
 	time.Sleep(time.Second + sleepTimeForExp)
 
-	if v := expireMap.TTL(1); v != 0 {
-		t.Error("TTL() - got non zero ttl for expired key")
+	if v := expireMap.GetTTL(1); v != 0 {
+		t.Error("GetTTL() - got non zero ttl for expired key")
 	}
 }
 
@@ -137,7 +137,7 @@ func TestExpireMap_Size(t *testing.T) {
 	ttl := time.Now().Add(10 * time.Second)
 
 	for i := 0; i < 100000; i++ {
-		expireMap.SetEx(i, i, ttl)
+		expireMap.Set(i, i, ttl)
 	}
 
 	if sz := expireMap.Size(); sz != 100000 {
@@ -145,7 +145,7 @@ func TestExpireMap_Size(t *testing.T) {
 	}
 
 	for i := 0; i < 100000; i++ {
-		expireMap.SetEx(i, i, ttl)
+		expireMap.Set(i, i, ttl)
 	}
 
 	if sz := expireMap.Size(); sz != 100000 {
@@ -171,10 +171,10 @@ func TestExpireMap_Size(t *testing.T) {
 	}
 	// End of test 3
 
-	// Test 4 - Check that after calling Expire() for all keys in the map, Size() returns 0
+	// Test 4 - Check that after calling SetTTL() for all keys in the map, Size() returns 0
 	ttl = time.Now().Add(time.Second)
 	for i := 0; i < 100000; i++ {
-		expireMap.SetEx(i, i, ttl)
+		expireMap.Set(i, i, ttl)
 	}
 
 	if sz := expireMap.Size(); sz != 100000 {
@@ -184,7 +184,7 @@ func TestExpireMap_Size(t *testing.T) {
 	ttl = time.Now().Add(-sleepTimeForExp)
 
 	for i := 0; i < 100000; i++ {
-		expireMap.Expire(i, ttl)
+		expireMap.SetTTL(i, ttl)
 	}
 
 	if sz := expireMap.Size(); sz != 0 {
@@ -193,57 +193,57 @@ func TestExpireMap_Size(t *testing.T) {
 	// End of test 4
 }
 
-func TestExpireMap_Expire(t *testing.T) {
+func TestExpireMap_SetTTL(t *testing.T) {
 	expireMap := New()
 	defer expireMap.Close()
 	ttl := time.Now().Add(10 * time.Second)
 
-	v, ok := expireMap.Expire("key", ttl)
+	v, ok := expireMap.SetTTL("key", ttl)
 
 	if v != nil || ok {
-		t.Error("Expire() - should return nil, false")
+		t.Error("SetTTL() - should return nil, false")
 	}
 
-	expireMap.SetEx("key", "value", ttl)
+	expireMap.Set("key", "value", ttl)
 
-	if v, ok = expireMap.Expire("key", ttl); !ok || v != "value" {
-		t.Error("Expire() - should return \"value\", true")
+	if v, ok = expireMap.SetTTL("key", ttl); !ok || v != "value" {
+		t.Error("SetTTL() - should return \"value\", true")
 	}
 
 	if v, ok := expireMap.Get("key"); !ok || v != "value" {
-		t.Error("Expire() - should get a value by the key")
+		t.Error("SetTTL() - should get a value by the key")
 	}
 
-	expireMap.Expire("key", time.Now().Add(timeResolution))
+	expireMap.SetTTL("key", time.Now().Add(timeResolution))
 
 	time.Sleep(timeResolution + sleepTimeForExp)
 
 	if v, ok := expireMap.Get("key"); ok || v != nil {
-		t.Error("Expire() - should not get a value by the key")
+		t.Error("SetTTL() - should not get a value by the key")
 	}
-	expireMap.SetEx("key", "value", ttl)
+	expireMap.Set("key", "value", ttl)
 
 	if v, ok := expireMap.Get("key"); !ok || v != "value" {
-		t.Error("Expire() - should get a value by the key")
+		t.Error("SetTTL() - should get a value by the key")
 	}
 
-	if v, ok = expireMap.Expire("key", time.Now().Add(-2*timeResolution)); v != nil || ok {
-		t.Error("Expire() - should return nil, false")
+	if v, ok = expireMap.SetTTL("key", time.Now().Add(-2*timeResolution)); v != nil || ok {
+		t.Error("SetTTL() - should return nil, false")
 	}
 
 	if v, ok := expireMap.Get("key"); ok || v != nil {
-		t.Error("Expire() - should not get a value by the key")
+		t.Error("SetTTL() - should not get a value by the key")
 	}
 
 	ttl = time.Now().Add(10 * time.Second)
 
 	for i := 0; i < 100000; i++ {
-		expireMap.SetEx(i, i, ttl)
+		expireMap.Set(i, i, ttl)
 	}
 
 	for i := 0; i < 100000; i++ {
-		if v, ok = expireMap.Expire(i, ttl); !ok || v != i {
-			t.Errorf("Expire() - should return %d, true", i)
+		if v, ok = expireMap.SetTTL(i, ttl); !ok || v != i {
+			t.Errorf("SetTTL() - should return %d, true", i)
 		}
 	}
 
@@ -251,20 +251,20 @@ func TestExpireMap_Expire(t *testing.T) {
 
 	for i := 0; i < 100000; i++ {
 		if i%2 == 0 {
-			if v, ok = expireMap.Expire(i, ttl); !ok || v != i {
-				t.Errorf("Expire() - should return %d, true", i)
+			if v, ok = expireMap.SetTTL(i, ttl); !ok || v != i {
+				t.Errorf("SetTTL() - should return %d, true", i)
 			}
 		} else {
 			expireMap.Delete(i)
-			if v, ok = expireMap.Expire(i, ttl); ok || v != nil {
-				t.Error("Expire() - should return nil, false")
+			if v, ok = expireMap.SetTTL(i, ttl); ok || v != nil {
+				t.Error("SetTTL() - should return nil, false")
 			}
 		}
 	}
 	time.Sleep(time.Second + sleepTimeForExp)
 	for i := 0; i < 100000; i += 2 {
-		if v, ok = expireMap.Expire(i, ttl); v != nil || ok {
-			t.Error("Expire() - should return nil, false")
+		if v, ok = expireMap.SetTTL(i, ttl); v != nil || ok {
+			t.Error("SetTTL() - should return nil, false")
 		}
 	}
 }
@@ -274,7 +274,7 @@ func TestExpireMap_Delete(t *testing.T) {
 	defer expireMap.Close()
 	// Test 1 - Test basic delete
 	ttl := time.Now().Add(10 * time.Second)
-	expireMap.SetEx("key", "value", ttl)
+	expireMap.Set("key", "value", ttl)
 	expireMap.Delete("key")
 
 	if v, ok := expireMap.Get("key"); ok || v != nil {
@@ -284,7 +284,7 @@ func TestExpireMap_Delete(t *testing.T) {
 
 	// Test 2 - Test multiple delete
 	for i := 0; i < 100000; i++ {
-		expireMap.SetEx(i, i, ttl)
+		expireMap.Set(i, i, ttl)
 	}
 	for i := 0; i < 100000; i += 2 {
 		expireMap.Delete(i)
@@ -381,7 +381,7 @@ func TestExpireMap_Curtime_WithHeavyLoad(t *testing.T) {
 			case 1:
 				_, _ = expireMap.Get(r % N)
 			case 2:
-				expireMap.SetEx(r%N, r%N, startTime.Add(ttlDiff))
+				expireMap.Set(r%N, r%N, startTime.Add(ttlDiff))
 			case 3:
 				expireMap.Delete(r % N)
 			default:
@@ -428,9 +428,9 @@ func TestExpireMap_GetAll(t *testing.T) {
 
 	for i := 0; i < 1000; i++ {
 		if i%2 == 1 {
-			expireMap.SetEx(i, i, ttl1)
+			expireMap.Set(i, i, ttl1)
 		} else {
-			expireMap.SetEx(i, i, ttl2)
+			expireMap.Set(i, i, ttl2)
 		}
 	}
 
@@ -479,3 +479,4 @@ func TestExpireMap_GetAll(t *testing.T) {
 	}
 	// End of test 2
 }
+

@@ -15,7 +15,7 @@ func Example() {
 	ttl := time.Unix(1735689600, 0)
 
 	// Insert
-	expireMap.SetEx(1, 1, ttl)
+	expireMap.Set(1, 1, ttl)
 
 	// Get value
 	v, ok := expireMap.Get(1)
@@ -23,19 +23,19 @@ func Example() {
 	// Output 1 true
 
 	// Get TTL
-	v = expireMap.TTL(1)
+	v = expireMap.GetTTL(1)
 	fmt.Println(v)
 	// Output 1735689600000000000
 
 	// Update TTL
-	v, ok = expireMap.Expire(1, time.Now().Add(time.Second))
+	v, ok = expireMap.SetTTL(1, time.Now().Add(time.Second))
 	fmt.Println(v, ok)
 	// Output 1 true
 
 	time.Sleep(time.Second + time.Millisecond)
 
 	// Because key is already expired, it returns nil, false
-	v, ok = expireMap.Expire(1, ttl)
+	v, ok = expireMap.SetTTL(1, ttl)
 	fmt.Println(v, ok)
 	// Output nil false
 

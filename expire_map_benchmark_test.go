@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-func BenchmarkSetEx(b *testing.B) {
+func BenchmarkExpireMap_Set(b *testing.B) {
 	presetN := []int{1000, 10000, 100000, 1000000, 10000000}
 
 	ttl := time.Now().Add(time.Hour)
@@ -23,7 +23,7 @@ func BenchmarkSetEx(b *testing.B) {
 			expireMap := New()
 			for i := 0; i < b.N; i++ {
 				for j := 0; j < pNN; j++ {
-					expireMap.SetEx(j, j, ttl)
+					expireMap.Set(j, j, ttl)
 				}
 				b.StopTimer()
 				expireMap.Close()
@@ -36,7 +36,7 @@ func BenchmarkSetEx(b *testing.B) {
 	}
 }
 
-func BenchmarkSetEx2(b *testing.B) {
+func BenchmarkExpireMap_Set2(b *testing.B) {
 	presetN := []int{1000, 10000, 100000, 1000000, 10000000}
 
 	ttl := time.Now().Add(time.Hour)
@@ -46,12 +46,12 @@ func BenchmarkSetEx2(b *testing.B) {
 		b.Run(fmt.Sprintf("N_%d", pNN), func(b *testing.B) {
 			expireMap := New()
 			for j := 0; j < pNN; j++ {
-				expireMap.SetEx(j, j, ttl)
+				expireMap.Set(j, j, ttl)
 			}
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				for j := 0; j < pNN; j++ {
-					expireMap.SetEx(j, j, ttl)
+					expireMap.Set(j, j, ttl)
 				}
 			}
 			expireMap.Close()
@@ -59,7 +59,7 @@ func BenchmarkSetEx2(b *testing.B) {
 	}
 }
 
-func BenchmarkDelete(b *testing.B) {
+func BenchmarkExpireMap_Delete(b *testing.B) {
 	presetN := []int{1000, 10000, 100000, 1000000, 10000000}
 
 	ttl := time.Now().Add(time.Hour)
@@ -72,7 +72,7 @@ func BenchmarkDelete(b *testing.B) {
 				runtime.GC()
 				expireMap := New()
 				for j := 0; j < pNN; j++ {
-					expireMap.SetEx(j, j, ttl)
+					expireMap.Set(j, j, ttl)
 				}
 				b.StartTimer()
 				for j := 0; j < pNN; j++ {
@@ -84,7 +84,7 @@ func BenchmarkDelete(b *testing.B) {
 	}
 }
 
-func BenchmarkExpire(b *testing.B) {
+func BenchmarkExpireMap_SetTTL(b *testing.B) {
 	presetN := []int{1000, 10000, 100000, 1000000, 10000000}
 
 	ttl := time.Now().Add(time.Hour)
@@ -94,12 +94,12 @@ func BenchmarkExpire(b *testing.B) {
 		b.Run(fmt.Sprintf("N_%d", pNN), func(b *testing.B) {
 			expireMap := New()
 			for j := 0; j < pNN; j++ {
-				expireMap.SetEx(j, j, ttl)
+				expireMap.Set(j, j, ttl)
 			}
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				for j := 0; j < pNN; j++ {
-					expireMap.Expire(j, ttl)
+					expireMap.SetTTL(j, ttl)
 				}
 			}
 			expireMap.Close()
@@ -107,7 +107,7 @@ func BenchmarkExpire(b *testing.B) {
 	}
 }
 
-func BenchmarkExpire2(b *testing.B) {
+func BenchmarkExpireMap_SetTTL2(b *testing.B) {
 	presetN := []int{1000, 10000, 100000, 1000000, 10000000}
 
 	ttl := time.Now().Add(time.Hour)
@@ -121,11 +121,11 @@ func BenchmarkExpire2(b *testing.B) {
 				runtime.GC()
 				expireMap := New()
 				for j := 0; j < pNN; j++ {
-					expireMap.SetEx(j, j, ttl)
+					expireMap.Set(j, j, ttl)
 				}
 				b.StartTimer()
 				for j := 0; j < pNN; j++ {
-					expireMap.Expire(j, oldttl)
+					expireMap.SetTTL(j, oldttl)
 				}
 				expireMap.Close()
 			}
@@ -133,7 +133,7 @@ func BenchmarkExpire2(b *testing.B) {
 	}
 }
 
-func BenchmarkGet(b *testing.B) {
+func BenchmarkExpireMap_Get(b *testing.B) {
 	presetN := []int{1000, 10000, 100000, 1000000, 10000000}
 	expiredRotation := []int{2, 3, 4, 5, 10, math.MaxInt32}
 
@@ -151,9 +151,9 @@ func BenchmarkGet(b *testing.B) {
 					expireMap := New()
 					for j := 0; j < pNN; j++ {
 						if j%ePP == 0 {
-							expireMap.SetEx(j, j, time.Now().Add(time.Millisecond))
+							expireMap.Set(j, j, time.Now().Add(time.Millisecond))
 						} else {
-							expireMap.SetEx(j, j, ttl)
+							expireMap.Set(j, j, ttl)
 						}
 					}
 					time.Sleep(time.Millisecond)
@@ -254,13 +254,13 @@ func writer(expireMap *ExpireMap, wg *sync.WaitGroup, steps, N int, ttlDiff time
 		r := rand.Int()
 		switch r % 4 {
 		case 3:
-			expireMap.SetEx(r%N, r%N, time.Now().Add(ttlDiff))
+			expireMap.Set(r%N, r%N, time.Now().Add(ttlDiff))
 		case 0:
-			expireMap.SetEx(r%N, r%N, time.Now().Add(ttlDiff))
+			expireMap.Set(r%N, r%N, time.Now().Add(ttlDiff))
 		case 1:
 			expireMap.Delete(r % N)
 		case 2:
-			expireMap.Expire(r%N, time.Now().Add(ttlDiff))
+			expireMap.SetTTL(r%N, time.Now().Add(ttlDiff))
 		}
 	}
 	wg.Done()
