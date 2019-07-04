@@ -90,7 +90,7 @@ type {{ .MapName}} struct {
 func (m *{{ .MapName}}) SetTTL(key {{ .Key}}, due time.Duration) ({{ .Value}}, bool) {
 	if due <= timeResolution {
 		m.Delete(key)
-		return nil, false
+		return {{ .ValueZero}}, false
 	}
 	ttl := int64(due/time.Nanosecond) + m.Curtime()
 
