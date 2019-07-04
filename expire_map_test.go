@@ -1,6 +1,7 @@
 package expiremap
 
 import (
+	"math"
 	"math/rand"
 	"sort"
 	"testing"
@@ -14,7 +15,7 @@ func TestExpireMap_Get(t *testing.T) {
 	defer expireMap.Close()
 	// Test 1 - Test basic get - check that it returns a proper value
 	// and does not return an expired key
-	expireMap.Set("key", "value", time.Now().Add(time.Second))
+	expireMap.Set("key", "value", time.Second)
 
 	if v, ok := expireMap.Get("key"); !ok || v != "value" {
 		t.Error("Get() - no key or wrong value")
@@ -28,7 +29,7 @@ func TestExpireMap_Get(t *testing.T) {
 	// End of test 1
 
 	// Test 2 - Test multiple gets
-	ttl := time.Now().Add(time.Second)
+	ttl := time.Second
 
 	for i := 0; i < 100000; i++ {
 		expireMap.Set(i, i, ttl)
@@ -54,7 +55,7 @@ func TestExpireMap_Get2(t *testing.T) {
 	expireMap := New()
 	defer expireMap.Close()
 
-	ttl := time.Now().Add(time.Hour)
+	ttl := time.Hour
 	ar := make([]int, 3, 3)
 	ar[0] = 3
 
@@ -82,7 +83,7 @@ func TestExpireMap_Set(t *testing.T) {
 	expireMap := New()
 	defer expireMap.Close()
 	// Test 1 - Test that Set stores ttl properly
-	ttl := time.Now().Add(time.Second)
+	ttl := time.Second
 
 	expireMap.Set("key", "value", ttl)
 
@@ -94,7 +95,7 @@ func TestExpireMap_Set(t *testing.T) {
 	// End of test 1
 
 	// Test 2 - Test multiple sets - check that multiple sets work
-	ttl = time.Now().Add(10 * time.Second)
+	ttl = 10 * time.Second
 
 	for i := 0; i < 50000; i++ {
 		expireMap.Set(i, i, ttl)
@@ -137,10 +138,10 @@ func TestExpireMap_GetTTL(t *testing.T) {
 	if v := expireMap.GetTTL(1); v != 0 {
 		t.Error("GetTTL() - got non zero ttl for non existing key")
 	}
-	ttl := time.Now().Add(time.Second)
+	ttl := time.Second
 	expireMap.Set(1, 1, ttl)
 
-	if v := expireMap.GetTTL(1); v != ttl.UnixNano() {
+	if v := expireMap.GetTTL(1); math.Abs(float64(v-int64(ttl/time.Nanosecond))) >= float64(timeResolution) {
 		t.Error("GetTTL() - got wrong ttl")
 	}
 
@@ -162,7 +163,7 @@ func TestExpireMap_Size(t *testing.T) {
 
 	// Test 2 - Check that Size() call's return value
 	// is the same as an amount of unique inserted keys
-	ttl := time.Now().Add(10 * time.Second)
+	ttl := 10 * time.Second
 
 	for i := 0; i < 100000; i++ {
 		expireMap.Set(i, i, ttl)
@@ -200,7 +201,7 @@ func TestExpireMap_Size(t *testing.T) {
 	// End of test 3
 
 	// Test 4 - Check that after calling SetTTL() for all keys in the map, Size() returns 0
-	ttl = time.Now().Add(time.Second)
+	ttl = time.Second
 	for i := 0; i < 100000; i++ {
 		expireMap.Set(i, i, ttl)
 	}
@@ -209,7 +210,7 @@ func TestExpireMap_Size(t *testing.T) {
 		t.Errorf("Size() - got %v, want %v", sz, 100000)
 	}
 
-	ttl = time.Now().Add(-sleepTimeForExp)
+	ttl = -sleepTimeForExp
 
 	for i := 0; i < 100000; i++ {
 		expireMap.SetTTL(i, ttl)
@@ -224,7 +225,7 @@ func TestExpireMap_Size(t *testing.T) {
 func TestExpireMap_SetTTL(t *testing.T) {
 	expireMap := New()
 	defer expireMap.Close()
-	ttl := time.Now().Add(10 * time.Second)
+	ttl := 10 * time.Second
 
 	v, ok := expireMap.SetTTL("key", ttl)
 
@@ -242,7 +243,7 @@ func TestExpireMap_SetTTL(t *testing.T) {
 		t.Error("SetTTL() - should get a value by the key")
 	}
 
-	expireMap.SetTTL("key", time.Now().Add(timeResolution))
+	expireMap.SetTTL("key", timeResolution)
 
 	time.Sleep(timeResolution + sleepTimeForExp)
 
@@ -255,7 +256,7 @@ func TestExpireMap_SetTTL(t *testing.T) {
 		t.Error("SetTTL() - should get a value by the key")
 	}
 
-	if v, ok = expireMap.SetTTL("key", time.Now().Add(-2*timeResolution)); v != nil || ok {
+	if v, ok = expireMap.SetTTL("key", -2*timeResolution); v != nil || ok {
 		t.Error("SetTTL() - should return nil, false")
 	}
 
@@ -263,7 +264,7 @@ func TestExpireMap_SetTTL(t *testing.T) {
 		t.Error("SetTTL() - should not get a value by the key")
 	}
 
-	ttl = time.Now().Add(10 * time.Second)
+	ttl = 10 * time.Second
 
 	for i := 0; i < 100000; i++ {
 		expireMap.Set(i, i, ttl)
@@ -275,7 +276,7 @@ func TestExpireMap_SetTTL(t *testing.T) {
 		}
 	}
 
-	ttl = time.Now().Add(time.Second)
+	ttl = time.Second
 
 	for i := 0; i < 100000; i++ {
 		if i%2 == 0 {
@@ -301,7 +302,7 @@ func TestExpireMap_Delete(t *testing.T) {
 	expireMap := New()
 	defer expireMap.Close()
 	// Test 1 - Test basic delete
-	ttl := time.Now().Add(10 * time.Second)
+	ttl := 10 * time.Second
 	expireMap.Set("key", "value", ttl)
 	expireMap.Delete("key")
 
@@ -330,7 +331,7 @@ func TestExpireMap_Delete(t *testing.T) {
 func TestExpireMap_Delete2(t *testing.T) {
 	expireMap := New()
 	defer expireMap.Close()
-	ttl := time.Now().Add(time.Hour)
+	ttl := time.Hour
 	expireMap.Set(1, 1, ttl)
 
 	for i := 0; i < 100; i++ {
@@ -422,7 +423,7 @@ func TestExpireMap_Curtime_WithHeavyLoad(t *testing.T) {
 			case 1:
 				_, _ = expireMap.Get(r % N)
 			case 2:
-				expireMap.Set(r%N, r%N, startTime.Add(ttlDiff))
+				expireMap.Set(r%N, r%N, startTime.Sub(time.Now())+ttlDiff)
 			case 3:
 				expireMap.Delete(r % N)
 			default:
@@ -464,8 +465,8 @@ func TestExpireMap_GetAll(t *testing.T) {
 	expireMap := New()
 	defer expireMap.Close()
 	// Test 1 - Test basic
-	ttl1 := time.Now().Add(time.Second)
-	ttl2 := time.Now().Add(5 * time.Second)
+	ttl1 := time.Second
+	ttl2 := 5 * time.Second
 
 	for i := 0; i < 1000; i++ {
 		if i%2 == 1 {

@@ -55,6 +55,7 @@ type KeyValue struct {
 }
 
 type item struct {
+	// ttl is unix nanoseconds. Instance should live up to this time. Probably, should be renamed to due
 	ttl   int64
 	key   interface{}
 	value interface{}
@@ -111,15 +112,16 @@ type ExpireMap struct {
 
 // SetTTL updates ttl for the given key. If ttl was successfully updated,
 // it returns value and "true". It happens, if and only if key presents
-// in the map and due variable is greater than curtime. In any other
-// case it returns nil and "false". Also, if due variable is less than
-// curtime, it just removes a key.
-func (m *ExpireMap) SetTTL(key interface{}, due time.Time) (interface{}, bool) {
-	ttl := due.UnixNano()
-	if ttl <= m.Curtime() {
+// in the map and "ttl" variable is greater than timeResolution. In any other
+// case it returns nil and "false". Also, if "ttl" variable is less than
+// timeResolution, it just removes a key.
+func (m *ExpireMap) SetTTL(key interface{}, ttl time.Duration) (interface{}, bool) {
+	if ttl <= timeResolution {
 		m.Delete(key)
 		return nil, false
 	}
+	due := int64(ttl/time.Nanosecond) + m.Curtime()
+
 	m.mutex.Lock()
 	if m.Stopped() {
 		m.mutex.Unlock()
@@ -136,7 +138,7 @@ func (m *ExpireMap) SetTTL(key interface{}, due time.Time) (interface{}, bool) {
 		m.mutex.Unlock()
 		return nil, false
 	}
-	v.ttl = ttl
+	v.ttl = due
 	m.values.put(id, v)
 	m.mutex.Unlock()
 	return v.value, true
@@ -203,8 +205,8 @@ func (m *ExpireMap) GetTTL(key interface{}) int64 {
 		return 0
 	}
 	v := m.values.get(id)
-	if v.ttl > m.Curtime() {
-		ttl := v.ttl
+	if cur := m.Curtime(); v.ttl > cur {
+		ttl := v.ttl - cur
 		m.mutex.RUnlock()
 		return ttl
 	}
@@ -238,11 +240,11 @@ func (m *ExpireMap) Close() {
 }
 
 // Set sets or updates value and ttl for the given key
-func (m *ExpireMap) Set(key interface{}, value interface{}, due time.Time) {
-	ttl := due.UnixNano()
-	if ttl <= m.Curtime() {
+func (m *ExpireMap) Set(key interface{}, value interface{}, ttl time.Duration) {
+	if ttl < timeResolution {
 		return
 	}
+	due := int64(ttl/time.Nanosecond) + m.Curtime()
 	m.mutex.Lock()
 	if m.Stopped() {
 		m.mutex.Unlock()
@@ -258,7 +260,7 @@ func (m *ExpireMap) Set(key interface{}, value interface{}, due time.Time) {
 	m.values.put(id, item{
 		key:   key,
 		value: value,
-		ttl:   ttl,
+		ttl:   due,
 	})
 	m.mutex.Unlock()
 }

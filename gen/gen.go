@@ -87,197 +87,198 @@ type {{ .MapName}} struct {
 	curtime int64
 }
 
-func (emp *{{ .MapName}}) SetTTL(key {{ .Key}}, due time.Time) ({{ .Value}}, bool) {
-	ttl := due.UnixNano()
-	if ttl <= emp.Curtime() {
-		emp.Delete(key)
+func (m *{{ .MapName}}) SetTTL(key {{ .Key}}, due time.Duration) ({{ .Value}}, bool) {
+	if due <= timeResolution {
+		m.Delete(key)
+		return nil, false
+	}
+	ttl := int64(due/time.Nanosecond) + m.Curtime()
+
+	m.mutex.Lock()
+	if m.Stopped() {
+		m.mutex.Unlock()
 		return {{ .ValueZero}}, false
 	}
-	emp.mutex.Lock()
-	if emp.Stopped() {
-		emp.mutex.Unlock()
-		return {{ .ValueZero}}, false
-	}
-	id, ok := emp.keys[key]
+	id, ok := m.keys[key]
 	if ok == false {
-		emp.mutex.Unlock()
+		m.mutex.Unlock()
 		return {{ .ValueZero}}, false
 	}
-	v := emp.values.get(id)
-	if v.ttl <= emp.Curtime() {
-		emp.del(key, id)
-		emp.mutex.Unlock()
+	v := m.values.get(id)
+	if v.ttl <= m.Curtime() {
+		m.del(key, id)
+		m.mutex.Unlock()
 		return {{ .ValueZero}}, false
 	}
 	v.ttl = ttl
-	emp.values.put(id, v)
-	emp.mutex.Unlock()
+	m.values.put(id, v)
+	m.mutex.Unlock()
 	return v.value, true
 }
 
-func (emp *{{ .MapName}}) Get(key {{ .Key}}) ({{ .Value}}, bool) {
-	emp.mutex.RLock()
-	if emp.Stopped() {
-		emp.mutex.RUnlock()
+func (m *{{ .MapName}}) Get(key {{ .Key}}) ({{ .Value}}, bool) {
+	m.mutex.RLock()
+	if m.Stopped() {
+		m.mutex.RUnlock()
 		return {{ .ValueZero}}, false
 	}
-	id, ok := emp.keys[key]
+	id, ok := m.keys[key]
 	if ok == false {
-		emp.mutex.RUnlock()
+		m.mutex.RUnlock()
 		return {{ .ValueZero}}, false
 	}
-	v := emp.values.get(id)
-	if v.ttl > emp.Curtime() {
-		emp.mutex.RUnlock()
+	v := m.values.get(id)
+	if v.ttl > m.Curtime() {
+		m.mutex.RUnlock()
 		return v.value, true
 	}
-	emp.mutex.RUnlock()
-	emp.mutex.Lock()
-	if emp.Stopped() {
-		emp.mutex.Unlock()
+	m.mutex.RUnlock()
+	m.mutex.Lock()
+	if m.Stopped() {
+		m.mutex.Unlock()
 		return {{ .ValueZero}}, false
 	}
 
-	id, ok = emp.keys[key]
+	id, ok = m.keys[key]
 	if ok == false {
-		emp.mutex.Unlock()
+		m.mutex.Unlock()
 		return {{ .ValueZero}}, false
 	}
 
-	v = emp.values.get(id)
-	if v.ttl > emp.Curtime() {
-		emp.mutex.Unlock()
+	v = m.values.get(id)
+	if v.ttl > m.Curtime() {
+		m.mutex.Unlock()
 		return v.value, true
 	}
 
-	emp.del(key, id)
-	emp.mutex.Unlock()
+	m.del(key, id)
+	m.mutex.Unlock()
 	return {{ .ValueZero}}, false
 }
 
-func (emp *{{ .MapName}}) GetTTL(key {{ .Key}}) int64 {
-	emp.mutex.RLock()
-	if emp.Stopped() {
-		emp.mutex.RUnlock()
+func (m *{{ .MapName}}) GetTTL(key {{ .Key}}) int64 {
+	m.mutex.RLock()
+	if m.Stopped() {
+		m.mutex.RUnlock()
 		return 0
 	}
-	id, ok := emp.keys[key]
+	id, ok := m.keys[key]
 	if ok == false {
-		emp.mutex.RUnlock()
+		m.mutex.RUnlock()
 		return 0
 	}
-	v := emp.values.get(id)
-	if v.ttl > emp.Curtime() {
-		ttl := v.ttl
-		emp.mutex.RUnlock()
+	v := m.values.get(id)
+	if cur := m.Curtime(); v.ttl > cur {
+		ttl := v.ttl - cur
+		m.mutex.RUnlock()
 		return ttl
 	}
-	emp.mutex.RUnlock()
+	m.mutex.RUnlock()
 	return 0
 }
 
-func (emp *{{ .MapName}}) Delete(key {{ .Key}}) {
-	emp.mutex.Lock()
-	if emp.Stopped() {
-		emp.mutex.Unlock()
+func (m *{{ .MapName}}) Delete(key {{ .Key}}) {
+	m.mutex.Lock()
+	if m.Stopped() {
+		m.mutex.Unlock()
 		return
 	}
-	if id, ok := emp.keys[key]; ok {
-		emp.del(key, id)
+	if id, ok := m.keys[key]; ok {
+		m.del(key, id)
 	}
-	emp.mutex.Unlock()
+	m.mutex.Unlock()
 }
 
-func (emp *{{ .MapName}}) Close() {
-	emp.mutex.Lock()
-	if emp.Stopped() == false {
-		atomic.StoreInt64(&emp.stopped, 1)
-		emp.keys = nil
-		emp.values = nil
-		emp.indices = nil
+func (m *{{ .MapName}}) Close() {
+	m.mutex.Lock()
+	if m.Stopped() == false {
+		atomic.StoreInt64(&m.stopped, 1)
+		m.keys = nil
+		m.values = nil
+		m.indices = nil
 	}
-	emp.mutex.Unlock()
+	m.mutex.Unlock()
 }
 
-func (emp *{{ .MapName}}) Set(key {{ .Key}}, value {{ .Value}}, due time.Time) {
-	ttl := due.UnixNano()
-	if ttl <= emp.Curtime() {
+func (m *{{ .MapName}}) Set(key {{ .Key}}, value {{ .Value}}, due time.Duration) {
+	if due < timeResolution {
 		return
 	}
-	emp.mutex.Lock()
-	if emp.Stopped() {
-		emp.mutex.Unlock()
+	ttl := int64(due/time.Nanosecond) + m.Curtime()
+	m.mutex.Lock()
+	if m.Stopped() {
+		m.mutex.Unlock()
 		return
 	}
 
-	id, ok := emp.keys[key]
+	id, ok := m.keys[key]
 	if !ok {
-		id = emp.indices.LowestUnused()
-		emp.indices.Insert(id)
-		emp.keys[key] = id
+		id = m.indices.LowestUnused()
+		m.indices.Insert(id)
+		m.keys[key] = id
 	}
-	emp.values.put(id, item{
+	m.values.put(id, item{
 		key:   key,
 		value: value,
 		ttl:   ttl,
 	})
-	emp.mutex.Unlock()
+	m.mutex.Unlock()
 }
 
-func (emp *{{ .MapName}}) GetAll() []KeyValue {
-	emp.mutex.RLock()
-	if emp.Stopped() {
-		emp.mutex.RUnlock()
+func (m *{{ .MapName}}) GetAll() []KeyValue {
+	m.mutex.RLock()
+	if m.Stopped() {
+		m.mutex.RUnlock()
 		return nil
 	}
-	sz := emp.indices.Size()
+	sz := m.indices.Size()
 	ans := make([]KeyValue, 0, sz)
-	curtime := emp.Curtime()
+	curtime := m.Curtime()
 	for i := 0; i < sz; i++ {
-		id := emp.indices.Kth(i)
-		v := emp.values.get(id)
+		id := m.indices.Kth(i)
+		v := m.values.get(id)
 		if v.ttl > curtime {
 			ans = append(ans, KeyValue{Key: v.key, Value: v.value})
 		}
 	}
-	emp.mutex.RUnlock()
+	m.mutex.RUnlock()
 	return ans
 }
 
-func (emp *{{ .MapName}}) Size() int {
-	emp.mutex.RLock()
-	sz := len(emp.keys)
-	emp.mutex.RUnlock()
+func (m *{{ .MapName}}) Size() int {
+	m.mutex.RLock()
+	sz := len(m.keys)
+	m.mutex.RUnlock()
 	return sz
 }
 
-func (emp *{{ .MapName}}) Stopped() bool {
-	return atomic.LoadInt64(&emp.stopped) == 1
+func (m *{{ .MapName}}) Stopped() bool {
+	return atomic.LoadInt64(&m.stopped) == 1
 }
 
-func (emp *{{ .MapName}}) Curtime() int64 {
-	return atomic.LoadInt64(&emp.curtime)
+func (m *{{ .MapName}}) Curtime() int64 {
+	return atomic.LoadInt64(&m.curtime)
 }
 
-func (emp *{{ .MapName}}) del(key {{ .Key}}, id uint64) {
-	delete(emp.keys, key)
-	emp.values.remove(id)
-	emp.indices.Remove(id)
+func (m *{{ .MapName}}) del(key {{ .Key}}, id uint64) {
+	delete(m.keys, key)
+	m.values.remove(id)
+	m.indices.Remove(id)
 }
 
-func (emp *{{ .MapName}}) randomExpire() bool {
+func (m *{{ .MapName}}) randomExpire() bool {
 	const totalChecks = 20
 	const bruteForceThreshold = 100
-	if emp.Stopped() {
+	if m.Stopped() {
 		return false
 	}
 	// Because the number of keys is small, just iterate over all keys
-	if sz := emp.indices.Size(); sz <= bruteForceThreshold {
+	if sz := m.indices.Size(); sz <= bruteForceThreshold {
 		for i := sz - 1; i >= 0; i-- {
-			id := emp.indices.Kth(i)
-			v := emp.values.get(id)
-			if v.ttl <= emp.Curtime() {
-				emp.del(v.key, id)
+			id := m.indices.Kth(i)
+			v := m.values.get(id)
+			if v.ttl <= m.Curtime() {
+				m.del(v.key, id)
 			}
 		}
 		return false
@@ -286,11 +287,11 @@ func (emp *{{ .MapName}}) randomExpire() bool {
 	expiredFound := 0
 
 	for i := 0; i < totalChecks; i++ {
-		sz := emp.indices.Size()
-		id := emp.indices.Kth(rand.Intn(sz))
-		v := emp.values.get(id)
-		if v.ttl <= emp.Curtime() {
-			emp.del(v.key, id)
+		sz := m.indices.Size()
+		id := m.indices.Kth(rand.Intn(sz))
+		v := m.values.get(id)
+		if v.ttl <= m.Curtime() {
+			m.del(v.key, id)
 			expiredFound++
 		}
 	}
@@ -301,12 +302,12 @@ func (emp *{{ .MapName}}) randomExpire() bool {
 	return false
 }
 
-func (emp *{{ .MapName}}) rotateExpire(kth int) int {
+func (m *{{ .MapName}}) rotateExpire(kth int) int {
 	const totalChecks = 20
-	if emp.Stopped() {
+	if m.Stopped() {
 		return 0
 	}
-	sz := emp.indices.Size()
+	sz := m.indices.Size()
 	if sz == 0 {
 		return 0
 	}
@@ -314,10 +315,10 @@ func (emp *{{ .MapName}}) rotateExpire(kth int) int {
 		kth = sz - 1
 	}
 	for i := 0; i < totalChecks; i++ {
-		id := emp.indices.Kth(kth)
-		v := emp.values.get(id)
-		if v.ttl <= emp.Curtime() {
-			emp.del(v.key, id)
+		id := m.indices.Kth(kth)
+		v := m.values.get(id)
+		if v.ttl <= m.Curtime() {
+			m.del(v.key, id)
 		}
 		kth--
 		if kth < 0 {
@@ -327,13 +328,13 @@ func (emp *{{ .MapName}}) rotateExpire(kth int) int {
 	return kth
 }
 
-func (emp *{{ .MapName}}) start() {
+func (m *{{ .MapName}}) start() {
 	go func() {
 		for {
-			if emp.Stopped() {
+			if m.Stopped() {
 				break
 			}
-			atomic.StoreInt64(&emp.curtime, time.Now().UnixNano())
+			atomic.StoreInt64(&m.curtime, time.Now().UnixNano())
 			time.Sleep(timeResolution)
 		}
 	}()
@@ -341,21 +342,21 @@ func (emp *{{ .MapName}}) start() {
 	go func() {
 		kth := 0
 		for {
-			if emp.Stopped() {
+			if m.Stopped() {
 				break
 			}
 			start := time.Now()
 			for i := 0; i < 10; i++ {
-				emp.mutex.Lock()
-				if !emp.randomExpire() {
-					emp.mutex.Unlock()
+				m.mutex.Lock()
+				if !m.randomExpire() {
+					m.mutex.Unlock()
 					break
 				}
-				emp.mutex.Unlock()
+				m.mutex.Unlock()
 			}
-			emp.mutex.Lock()
-			kth = emp.rotateExpire(kth)
-			emp.mutex.Unlock()
+			m.mutex.Lock()
+			kth = m.rotateExpire(kth)
+			m.mutex.Unlock()
 			diff := time.Since(start)
 			time.Sleep(expireInterval - diff)
 		}

@@ -12,7 +12,9 @@ func Example() {
 	defer expireMap.Close()
 
 	// GMT Wednesday, 1 January 2025, 0:00:00
-	ttl := time.Unix(1735689600, 0)
+	far := time.Unix(1735689600, 0)
+
+	ttl := far.Sub(time.Now())
 
 	// Insert
 	expireMap.Set(1, 1, ttl)
@@ -24,11 +26,11 @@ func Example() {
 
 	// Get TTL
 	v = expireMap.GetTTL(1)
+	// The output is equal to ~ ttl
 	fmt.Println(v)
-	// Output 1735689600000000000
 
 	// Update TTL
-	v, ok = expireMap.SetTTL(1, time.Now().Add(time.Second))
+	v, ok = expireMap.SetTTL(1, time.Second)
 	fmt.Println(v, ok)
 	// Output 1 true
 

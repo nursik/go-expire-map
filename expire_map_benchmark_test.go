@@ -15,7 +15,7 @@ import (
 func BenchmarkExpireMap_Set(b *testing.B) {
 	presetN := []int{1000, 10000, 100000, 1000000, 10000000}
 
-	ttl := time.Now().Add(time.Hour)
+	ttl := time.Hour
 
 	for _, pN := range presetN {
 		pNN := pN
@@ -39,7 +39,7 @@ func BenchmarkExpireMap_Set(b *testing.B) {
 func BenchmarkExpireMap_Set2(b *testing.B) {
 	presetN := []int{1000, 10000, 100000, 1000000, 10000000}
 
-	ttl := time.Now().Add(time.Hour)
+	ttl := time.Hour
 
 	for _, pN := range presetN {
 		pNN := pN
@@ -62,7 +62,7 @@ func BenchmarkExpireMap_Set2(b *testing.B) {
 func BenchmarkExpireMap_Delete(b *testing.B) {
 	presetN := []int{1000, 10000, 100000, 1000000, 10000000}
 
-	ttl := time.Now().Add(time.Hour)
+	ttl := time.Hour
 
 	for _, pN := range presetN {
 		pNN := pN
@@ -87,7 +87,7 @@ func BenchmarkExpireMap_Delete(b *testing.B) {
 func BenchmarkExpireMap_SetTTL(b *testing.B) {
 	presetN := []int{1000, 10000, 100000, 1000000, 10000000}
 
-	ttl := time.Now().Add(time.Hour)
+	ttl := time.Hour
 
 	for _, pN := range presetN {
 		pNN := pN
@@ -110,8 +110,7 @@ func BenchmarkExpireMap_SetTTL(b *testing.B) {
 func BenchmarkExpireMap_SetTTL2(b *testing.B) {
 	presetN := []int{1000, 10000, 100000, 1000000, 10000000}
 
-	ttl := time.Now().Add(time.Hour)
-	oldttl := time.Now()
+	ttl := time.Hour
 
 	for _, pN := range presetN {
 		pNN := pN
@@ -125,7 +124,7 @@ func BenchmarkExpireMap_SetTTL2(b *testing.B) {
 				}
 				b.StartTimer()
 				for j := 0; j < pNN; j++ {
-					expireMap.SetTTL(j, oldttl)
+					expireMap.SetTTL(j, time.Nanosecond)
 				}
 				expireMap.Close()
 			}
@@ -137,7 +136,7 @@ func BenchmarkExpireMap_Get(b *testing.B) {
 	presetN := []int{1000, 10000, 100000, 1000000, 10000000}
 	expiredRotation := []int{2, 3, 4, 5, 10, math.MaxInt32}
 
-	ttl := time.Now().Add(time.Hour)
+	ttl := time.Hour
 
 	for _, pN := range presetN {
 		for _, eP := range expiredRotation {
@@ -151,7 +150,7 @@ func BenchmarkExpireMap_Get(b *testing.B) {
 					expireMap := New()
 					for j := 0; j < pNN; j++ {
 						if j%ePP == 0 {
-							expireMap.Set(j, j, time.Now().Add(time.Millisecond))
+							expireMap.Set(j, j, time.Millisecond)
 						} else {
 							expireMap.Set(j, j, ttl)
 						}
@@ -248,19 +247,19 @@ func reader(expireMap *ExpireMap, wg *sync.WaitGroup, steps, N int) {
 	wg.Done()
 }
 
-func writer(expireMap *ExpireMap, wg *sync.WaitGroup, steps, N int, ttlDiff time.Duration) {
+func writer(expireMap *ExpireMap, wg *sync.WaitGroup, steps, N int, ttl time.Duration) {
 	for steps >= 0 {
 		steps--
 		r := rand.Int()
 		switch r % 4 {
 		case 3:
-			expireMap.Set(r%N, r%N, time.Now().Add(ttlDiff))
+			expireMap.Set(r%N, r%N, ttl)
 		case 0:
-			expireMap.Set(r%N, r%N, time.Now().Add(ttlDiff))
+			expireMap.Set(r%N, r%N, ttl)
 		case 1:
 			expireMap.Delete(r % N)
 		case 2:
-			expireMap.SetTTL(r%N, time.Now().Add(ttlDiff))
+			expireMap.SetTTL(r%N, ttl)
 		}
 	}
 	wg.Done()
