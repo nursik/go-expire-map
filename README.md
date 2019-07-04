@@ -58,15 +58,16 @@ Benchmarks showed that it can be 25% faster than current implementation (benchma
 
 To generate a map with different types use `gen/gen.go`. It prints a code to stdout. You must save output to a file and fix imports, if necessary. Also, it uses `github.com/nursik/go-ordered-set` and you need import it too.
 
-`gen.go` assumes that value is a struct and that's why you don't need to set zero-value argument (-zv). But if you need other types as a value than struct, you must manually set zero-value. Default type for key and value is `interface{}` 
+`gen.go` assumes that value is a struct and that's why you don't need to set zero-value argument (-zv). But if you need other types as a value than struct, you must manually set zero-value.
+Default type for key and value is `interface{}`. Also you can change default name of the map struct (ExpireMap) using -mp argument.
 
 Example:
 ```
 // Generate map with Animal{} as key and Planet{} as value
 go run gen.go -k Animal -v Planet
 
-// Generate map with Animal{} as key and *Planet{} as value
-go run gen.go -k Animal -v *Planet
+// Generate map with Animal{} as key, *Planet{} as value and CustomMap as a map name 
+go run gen.go -k Animal -v *Planet -mp CustomMap
 
 // Generate map with int as key and *Planet{} as value
 go run gen.go -k int -v *Planet
