@@ -114,31 +114,31 @@ type ExpireMap struct {
 // in the map and due variable is greater than curtime. In any other
 // case it returns nil and "false". Also, if due variable is less than
 // curtime, it just removes a key.
-func (emp *ExpireMap) SetTTL(key interface{}, due time.Time) (interface{}, bool) {
+func (m *ExpireMap) SetTTL(key interface{}, due time.Time) (interface{}, bool) {
 	ttl := due.UnixNano()
-	if ttl <= emp.Curtime() {
-		emp.Delete(key)
+	if ttl <= m.Curtime() {
+		m.Delete(key)
 		return nil, false
 	}
-	emp.mutex.Lock()
-	if emp.Stopped() {
-		emp.mutex.Unlock()
+	m.mutex.Lock()
+	if m.Stopped() {
+		m.mutex.Unlock()
 		return nil, false
 	}
-	id, ok := emp.keys[key]
+	id, ok := m.keys[key]
 	if ok == false {
-		emp.mutex.Unlock()
+		m.mutex.Unlock()
 		return nil, false
 	}
-	v := emp.values.get(id)
-	if v.ttl <= emp.Curtime() {
-		emp.del(key, id)
-		emp.mutex.Unlock()
+	v := m.values.get(id)
+	if v.ttl <= m.Curtime() {
+		m.del(key, id)
+		m.mutex.Unlock()
 		return nil, false
 	}
 	v.ttl = ttl
-	emp.values.put(id, v)
-	emp.mutex.Unlock()
+	m.values.put(id, v)
+	m.mutex.Unlock()
 	return v.value, true
 }
 
@@ -149,185 +149,185 @@ func (emp *ExpireMap) SetTTL(key interface{}, due time.Time) (interface{}, bool)
 // removes the given key (otherwise it returns a value and "true"). So basically,
 // with increase of the number of hits to expired key, performance of Get method
 // lowers.
-func (emp *ExpireMap) Get(key interface{}) (interface{}, bool) {
-	emp.mutex.RLock()
-	if emp.Stopped() {
-		emp.mutex.RUnlock()
+func (m *ExpireMap) Get(key interface{}) (interface{}, bool) {
+	m.mutex.RLock()
+	if m.Stopped() {
+		m.mutex.RUnlock()
 		return nil, false
 	}
-	id, ok := emp.keys[key]
+	id, ok := m.keys[key]
 	if ok == false {
-		emp.mutex.RUnlock()
+		m.mutex.RUnlock()
 		return nil, false
 	}
-	v := emp.values.get(id)
-	if v.ttl > emp.Curtime() {
-		emp.mutex.RUnlock()
+	v := m.values.get(id)
+	if v.ttl > m.Curtime() {
+		m.mutex.RUnlock()
 		return v.value, true
 	}
-	emp.mutex.RUnlock()
-	emp.mutex.Lock()
-	if emp.Stopped() {
-		emp.mutex.Unlock()
+	m.mutex.RUnlock()
+	m.mutex.Lock()
+	if m.Stopped() {
+		m.mutex.Unlock()
 		return nil, false
 	}
 
-	id, ok = emp.keys[key]
+	id, ok = m.keys[key]
 	if ok == false {
-		emp.mutex.Unlock()
+		m.mutex.Unlock()
 		return nil, false
 	}
 
-	v = emp.values.get(id)
-	if v.ttl > emp.Curtime() {
-		emp.mutex.Unlock()
+	v = m.values.get(id)
+	if v.ttl > m.Curtime() {
+		m.mutex.Unlock()
 		return v.value, true
 	}
 
-	emp.del(key, id)
-	emp.mutex.Unlock()
+	m.del(key, id)
+	m.mutex.Unlock()
 	return nil, false
 }
 
 // GetTTL returns ttl for the given key as Unix nanoseconds, if it is not expired
 // and exists in the map. Otherwise, it returns 0.
-func (emp *ExpireMap) GetTTL(key interface{}) int64 {
-	emp.mutex.RLock()
-	if emp.Stopped() {
-		emp.mutex.RUnlock()
+func (m *ExpireMap) GetTTL(key interface{}) int64 {
+	m.mutex.RLock()
+	if m.Stopped() {
+		m.mutex.RUnlock()
 		return 0
 	}
-	id, ok := emp.keys[key]
+	id, ok := m.keys[key]
 	if ok == false {
-		emp.mutex.RUnlock()
+		m.mutex.RUnlock()
 		return 0
 	}
-	v := emp.values.get(id)
-	if v.ttl > emp.Curtime() {
+	v := m.values.get(id)
+	if v.ttl > m.Curtime() {
 		ttl := v.ttl
-		emp.mutex.RUnlock()
+		m.mutex.RUnlock()
 		return ttl
 	}
-	emp.mutex.RUnlock()
+	m.mutex.RUnlock()
 	return 0
 }
 
 // Delete removes key from the map.
-func (emp *ExpireMap) Delete(key interface{}) {
-	emp.mutex.Lock()
-	if emp.Stopped() {
-		emp.mutex.Unlock()
+func (m *ExpireMap) Delete(key interface{}) {
+	m.mutex.Lock()
+	if m.Stopped() {
+		m.mutex.Unlock()
 		return
 	}
-	if id, ok := emp.keys[key]; ok {
-		emp.del(key, id)
+	if id, ok := m.keys[key]; ok {
+		m.del(key, id)
 	}
-	emp.mutex.Unlock()
+	m.mutex.Unlock()
 }
 
 // Close stops internal goroutines and removes all internal structures.
-func (emp *ExpireMap) Close() {
-	emp.mutex.Lock()
-	if emp.Stopped() == false {
-		atomic.StoreInt64(&emp.stopped, 1)
-		emp.keys = nil
-		emp.values = nil
-		emp.indices = nil
+func (m *ExpireMap) Close() {
+	m.mutex.Lock()
+	if m.Stopped() == false {
+		atomic.StoreInt64(&m.stopped, 1)
+		m.keys = nil
+		m.values = nil
+		m.indices = nil
 	}
-	emp.mutex.Unlock()
+	m.mutex.Unlock()
 }
 
 // Set sets or updates value and ttl for the given key
-func (emp *ExpireMap) Set(key interface{}, value interface{}, due time.Time) {
+func (m *ExpireMap) Set(key interface{}, value interface{}, due time.Time) {
 	ttl := due.UnixNano()
-	if ttl <= emp.Curtime() {
+	if ttl <= m.Curtime() {
 		return
 	}
-	emp.mutex.Lock()
-	if emp.Stopped() {
-		emp.mutex.Unlock()
+	m.mutex.Lock()
+	if m.Stopped() {
+		m.mutex.Unlock()
 		return
 	}
 
-	id, ok := emp.keys[key]
+	id, ok := m.keys[key]
 	if !ok {
-		id = emp.indices.LowestUnused()
-		emp.indices.Insert(id)
-		emp.keys[key] = id
+		id = m.indices.LowestUnused()
+		m.indices.Insert(id)
+		m.keys[key] = id
 	}
-	emp.values.put(id, item{
+	m.values.put(id, item{
 		key:   key,
 		value: value,
 		ttl:   ttl,
 	})
-	emp.mutex.Unlock()
+	m.mutex.Unlock()
 }
 
 // GetAll returns a slice of KeyValue. It guarantees that all
 // keys are presented in the map and were not expired at the moment
 // of method call.
-func (emp *ExpireMap) GetAll() []KeyValue {
-	emp.mutex.RLock()
-	if emp.Stopped() {
-		emp.mutex.RUnlock()
+func (m *ExpireMap) GetAll() []KeyValue {
+	m.mutex.RLock()
+	if m.Stopped() {
+		m.mutex.RUnlock()
 		return nil
 	}
-	sz := emp.indices.Size()
+	sz := m.indices.Size()
 	ans := make([]KeyValue, 0, sz)
-	curtime := emp.Curtime()
+	curtime := m.Curtime()
 	for i := 0; i < sz; i++ {
-		id := emp.indices.Kth(i)
-		v := emp.values.get(id)
+		id := m.indices.Kth(i)
+		v := m.values.get(id)
 		if v.ttl > curtime {
 			ans = append(ans, KeyValue{Key: v.key, Value: v.value})
 		}
 	}
-	emp.mutex.RUnlock()
+	m.mutex.RUnlock()
 	return ans
 }
 
 // Size returns a number of keys in the map, both expired and unexpired.
-func (emp *ExpireMap) Size() int {
-	emp.mutex.RLock()
-	sz := len(emp.keys)
-	emp.mutex.RUnlock()
+func (m *ExpireMap) Size() int {
+	m.mutex.RLock()
+	sz := len(m.keys)
+	m.mutex.RUnlock()
 	return sz
 }
 
 // Stopped indicates that map is stopped
-func (emp *ExpireMap) Stopped() bool {
-	return atomic.LoadInt64(&emp.stopped) == 1
+func (m *ExpireMap) Stopped() bool {
+	return atomic.LoadInt64(&m.stopped) == 1
 }
 
 // Curtime returns Unix nanoseconds. You may use it instead of calling time.Now().UnixNano().
 // It lags behind time.Now() and on average difference is less than timeResolution,
 // which is 1 millisecond, but sometimes difference may be up to 5 milliseconds.
-func (emp *ExpireMap) Curtime() int64 {
-	return atomic.LoadInt64(&emp.curtime)
+func (m *ExpireMap) Curtime() int64 {
+	return atomic.LoadInt64(&m.curtime)
 }
 
 // del is helper method to delete key and associated id from the map
-func (emp *ExpireMap) del(key interface{}, id uint64) {
-	delete(emp.keys, key)
-	emp.values.remove(id)
-	emp.indices.Remove(id)
+func (m *ExpireMap) del(key interface{}, id uint64) {
+	delete(m.keys, key)
+	m.values.remove(id)
+	m.indices.Remove(id)
 }
 
 // randomExpire randomly gets keys and checks for expiration.
 // The common logic was inspired by Redis.
-func (emp *ExpireMap) randomExpire() bool {
+func (m *ExpireMap) randomExpire() bool {
 	const totalChecks = 20
 	const bruteForceThreshold = 100
-	if emp.Stopped() {
+	if m.Stopped() {
 		return false
 	}
 	// Because the number of keys is small, just iterate over all keys
-	if sz := emp.indices.Size(); sz <= bruteForceThreshold {
+	if sz := m.indices.Size(); sz <= bruteForceThreshold {
 		for i := sz - 1; i >= 0; i-- {
-			id := emp.indices.Kth(i)
-			v := emp.values.get(id)
-			if v.ttl <= emp.Curtime() {
-				emp.del(v.key, id)
+			id := m.indices.Kth(i)
+			v := m.values.get(id)
+			if v.ttl <= m.Curtime() {
+				m.del(v.key, id)
 			}
 		}
 		return false
@@ -336,11 +336,11 @@ func (emp *ExpireMap) randomExpire() bool {
 	expiredFound := 0
 
 	for i := 0; i < totalChecks; i++ {
-		sz := emp.indices.Size()
-		id := emp.indices.Kth(rand.Intn(sz))
-		v := emp.values.get(id)
-		if v.ttl <= emp.Curtime() {
-			emp.del(v.key, id)
+		sz := m.indices.Size()
+		id := m.indices.Kth(rand.Intn(sz))
+		v := m.values.get(id)
+		if v.ttl <= m.Curtime() {
+			m.del(v.key, id)
 			expiredFound++
 		}
 	}
@@ -356,12 +356,12 @@ func (emp *ExpireMap) randomExpire() bool {
 // that's why this method was written. Basically, it iterates over 20 keys
 // and checks them. The passed variable is k-th key, which previously was
 // checked.
-func (emp *ExpireMap) rotateExpire(kth int) int {
+func (m *ExpireMap) rotateExpire(kth int) int {
 	const totalChecks = 20
-	if emp.Stopped() {
+	if m.Stopped() {
 		return 0
 	}
-	sz := emp.indices.Size()
+	sz := m.indices.Size()
 	if sz == 0 {
 		return 0
 	}
@@ -369,10 +369,10 @@ func (emp *ExpireMap) rotateExpire(kth int) int {
 		kth = sz - 1
 	}
 	for i := 0; i < totalChecks; i++ {
-		id := emp.indices.Kth(kth)
-		v := emp.values.get(id)
-		if v.ttl <= emp.Curtime() {
-			emp.del(v.key, id)
+		id := m.indices.Kth(kth)
+		v := m.values.get(id)
+		if v.ttl <= m.Curtime() {
+			m.del(v.key, id)
 		}
 		kth--
 		if kth < 0 {
@@ -385,13 +385,13 @@ func (emp *ExpireMap) rotateExpire(kth int) int {
 // start starts two goroutines - first for updating curtime variable and
 // second for expiration of keys. for loops with time.Sleep are used instead
 // of time tickers.
-func (emp *ExpireMap) start() {
+func (m *ExpireMap) start() {
 	go func() {
 		for {
-			if emp.Stopped() {
+			if m.Stopped() {
 				break
 			}
-			atomic.StoreInt64(&emp.curtime, time.Now().UnixNano())
+			atomic.StoreInt64(&m.curtime, time.Now().UnixNano())
 			time.Sleep(timeResolution)
 		}
 	}()
@@ -399,21 +399,21 @@ func (emp *ExpireMap) start() {
 	go func() {
 		kth := 0
 		for {
-			if emp.Stopped() {
+			if m.Stopped() {
 				break
 			}
 			start := time.Now()
 			for i := 0; i < 10; i++ {
-				emp.mutex.Lock()
-				if !emp.randomExpire() {
-					emp.mutex.Unlock()
+				m.mutex.Lock()
+				if !m.randomExpire() {
+					m.mutex.Unlock()
 					break
 				}
-				emp.mutex.Unlock()
+				m.mutex.Unlock()
 			}
-			emp.mutex.Lock()
-			kth = emp.rotateExpire(kth)
-			emp.mutex.Unlock()
+			m.mutex.Lock()
+			kth = m.rotateExpire(kth)
+			m.mutex.Unlock()
 			diff := time.Since(start)
 			time.Sleep(expireInterval - diff)
 		}
