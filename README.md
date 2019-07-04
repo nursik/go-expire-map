@@ -52,6 +52,32 @@ func main() {
 
 ```
 
+## Custom expire maps
+Expire map uses `interface{}` as a type for keys and values, but you can generate your a map with different types.
+Benchmarks showed that it can be 25% faster than current implementation (benchmarks were done on `struct{x int, y string, z string}` as key and `struct{x int, y string, z string, t string}` as value).
+
+To generate a map with different types use `gen/gen.go`. It prints a code to stdout. You must save output to a file and fix imports, if necessary. Also, it uses `github.com/nursik/go-ordered-set` and you need import it too.
+
+`gen.go` assumes that value is a struct and that's why you don't need to set zero-value argument (-zv). But if you need other types as a value than struct, you must manually set zero-value. Default type for key and value is `interface{}` 
+
+Example:
+```
+// Generate map with Animal{} as key and Planet{} as value
+go run gen.go -k Animal -v Planet
+
+// Generate map with Animal{} as key and *Planet{} as value
+go run gen.go -k Animal -v *Planet
+
+// Generate map with int as key and *Planet{} as value
+go run gen.go -k int -v *Planet
+
+// Generate map with int as key and string as value
+go run gen.go -k int -v string -zv "\"\""
+
+// Generate map with interface as key and []int as value
+go run gen.go -v "[]int" -zv "nil"
+
+```
 ## Benchmarks
 Benchmarks are done on Asus ROG GL553V with:
 * CPU: Intel® Core™ i7-7700HQ CPU @ 2.80GHz × 8
