@@ -377,8 +377,8 @@ func New() *ExpireMap {
 `
 
 type R struct {
-	Key string
-	Value string
+	Key       string
+	Value     string
 	ValueZero string
 }
 
@@ -386,8 +386,8 @@ func main() {
 	flag.Parse()
 
 	r := R{
-		Key: *key,
-		Value: *value,
+		Key:       *key,
+		Value:     *value,
 		ValueZero: "&" + *value + "{}",
 	}
 	if v := *value; v == "interface{}" || strings.HasPrefix(v, "*") {
