@@ -90,7 +90,7 @@ func (ps *pages) remove(index uint64) {
 	if page.size == 0 {
 		ps.pages[bucket] = nil
 	} else {
-		ps.pages[bucket].values[index&(1<<pageBitSize-1)].value = nil
+		page.values[index&(1<<pageBitSize-1)].value = nil
 	}
 }
 

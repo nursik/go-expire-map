@@ -299,6 +299,19 @@ func TestExpireMap_Delete(t *testing.T) {
 	// End of test 2
 }
 
+func TestExpireMap_Delete2(t *testing.T) {
+	expireMap := New()
+	defer expireMap.Close()
+	ttl := time.Now().Add(time.Hour)
+	expireMap.Set(1, 1, ttl)
+
+	for i := 0; i < 100; i++ {
+		v := make([]byte, 100000000, 100000000)
+		expireMap.Set(2, v, ttl)
+		expireMap.Delete(2)
+	}
+}
+
 func TestExpireMap_StoppedAndClose(t *testing.T) {
 	expireMap := New()
 	defer expireMap.Close()
