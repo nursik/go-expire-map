@@ -48,6 +48,30 @@ const timeResolution = time.Millisecond
 // time interval for calling randomExpire and rotateExpire methods
 const expireInterval = 100 * time.Millisecond
 
+// EventType is used for notification channel
+type EventType uint8
+
+const (
+	Expire EventType = 1<<iota
+	Delete
+	Update
+	Set
+	AllEvents = Expire | Delete | Update | Set
+	NoEvents = 0
+)
+
+// Event is used for notification channel
+type Event struct {
+	Key interface{}
+	Value interface{}
+	// Time is when this event occurred (in Unix nanoseconds)
+	Time int64
+	// Due is when this key will expire (in Unix nanoseconds, 0 for expired)
+	Due int64
+	// Type of the Event. Equal to Expire, Delete, Update or Set.
+	Type EventType
+}
+
 // KeyValue is used only for GetAll method
 type KeyValue struct {
 	Key   interface{}
@@ -55,8 +79,8 @@ type KeyValue struct {
 }
 
 type item struct {
-	// ttl is unix nanoseconds. Instance should live up to this time. Probably, should be renamed to due
-	ttl   int64
+	// due is unix nanoseconds. Instance should live up to this time
+	due   int64
 	key   interface{}
 	value interface{}
 }
@@ -108,6 +132,8 @@ type ExpireMap struct {
 	mutex   sync.RWMutex
 	stopped int64
 	curtime int64
+	c chan <- Event
+	events EventType
 }
 
 // SetTTL updates ttl for the given key. If ttl was successfully updated,
@@ -133,12 +159,23 @@ func (m *ExpireMap) SetTTL(key interface{}, ttl time.Duration) (interface{}, boo
 		return nil, false
 	}
 	v := m.values.get(id)
-	if v.ttl <= m.Curtime() {
-		m.del(key, id)
+	if v.due <= m.Curtime() {
+		m.del(key, id, Expire)
 		m.mutex.Unlock()
 		return nil, false
 	}
-	v.ttl = due
+
+	if (m.events | Update) > 0 && m.c != nil {
+		m.c <- Event{
+			Key: key,
+			Value: v.value,
+			Type: Update,
+			Time: m.Curtime(),
+			Due: due,
+		}
+	}
+
+	v.due = due
 	m.values.put(id, v)
 	m.mutex.Unlock()
 	return v.value, true
@@ -163,7 +200,7 @@ func (m *ExpireMap) Get(key interface{}) (interface{}, bool) {
 		return nil, false
 	}
 	v := m.values.get(id)
-	if v.ttl > m.Curtime() {
+	if v.due > m.Curtime() {
 		m.mutex.RUnlock()
 		return v.value, true
 	}
@@ -181,12 +218,12 @@ func (m *ExpireMap) Get(key interface{}) (interface{}, bool) {
 	}
 
 	v = m.values.get(id)
-	if v.ttl > m.Curtime() {
+	if v.due > m.Curtime() {
 		m.mutex.Unlock()
 		return v.value, true
 	}
 
-	m.del(key, id)
+	m.del(key, id, Expire)
 	m.mutex.Unlock()
 	return nil, false
 }
@@ -205,8 +242,8 @@ func (m *ExpireMap) GetTTL(key interface{}) int64 {
 		return 0
 	}
 	v := m.values.get(id)
-	if cur := m.Curtime(); v.ttl > cur {
-		ttl := v.ttl - cur
+	if cur := m.Curtime(); v.due > cur {
+		ttl := v.due - cur
 		m.mutex.RUnlock()
 		return ttl
 	}
@@ -222,7 +259,7 @@ func (m *ExpireMap) Delete(key interface{}) {
 		return
 	}
 	if id, ok := m.keys[key]; ok {
-		m.del(key, id)
+		m.del(key, id, Delete)
 	}
 	m.mutex.Unlock()
 }
@@ -235,6 +272,7 @@ func (m *ExpireMap) Close() {
 		m.keys = nil
 		m.values = nil
 		m.indices = nil
+		//m.c = nil
 	}
 	m.mutex.Unlock()
 }
@@ -251,17 +289,28 @@ func (m *ExpireMap) Set(key interface{}, value interface{}, ttl time.Duration) {
 		return
 	}
 
+	t := Update
 	id, ok := m.keys[key]
 	if !ok {
 		id = m.indices.LowestUnused()
 		m.indices.Insert(id)
 		m.keys[key] = id
+		t = Set
 	}
 	m.values.put(id, item{
 		key:   key,
 		value: value,
-		ttl:   due,
+		due:   due,
 	})
+	if (m.events | t) > 0 && m.c != nil {
+		m.c <- Event{
+			Key: key,
+			Value: value,
+			Due: due,
+			Time: m.Curtime(),
+			Type: t,
+		}
+	}
 	m.mutex.Unlock()
 }
 
@@ -280,7 +329,7 @@ func (m *ExpireMap) GetAll() []KeyValue {
 	for i := 0; i < sz; i++ {
 		id := m.indices.Kth(i)
 		v := m.values.get(id)
-		if v.ttl > curtime {
+		if v.due > curtime {
 			ans = append(ans, KeyValue{Key: v.key, Value: v.value})
 		}
 	}
@@ -296,7 +345,7 @@ func (m *ExpireMap) Size() int {
 	return sz
 }
 
-// Stopped indicates that map is stopped
+// Stopped indicates that map is stopped.
 func (m *ExpireMap) Stopped() bool {
 	return atomic.LoadInt64(&m.stopped) == 1
 }
@@ -308,9 +357,32 @@ func (m *ExpireMap) Curtime() int64 {
 	return atomic.LoadInt64(&m.curtime)
 }
 
+// Notify sets a channel and causes a map to send Event to a channel based on the given
+// EventType. To receive all events use AllEvents constant. To receive no events use
+// NoEvents constant or set nil chan.
+func (m *ExpireMap) Notify(c chan <- Event, events EventType) {
+	m.mutex.Lock()
+	if m.Stopped() {
+		m.mutex.Unlock()
+		return
+	}
+	m.c = c
+	m.events = events
+	m.mutex.Unlock()
+}
+
 // del is helper method to delete key and associated id from the map
-func (m *ExpireMap) del(key interface{}, id uint64) {
+func (m *ExpireMap) del(key interface{}, id uint64, t EventType) {
 	delete(m.keys, key)
+	if (m.events | t) > 0 && m.c != nil {
+		i := m.values.get(id)
+		m.c <- Event{
+			Key: key,
+			Value: i.value,
+			Time: m.Curtime(),
+			Type: t,
+		}
+	}
 	m.values.remove(id)
 	m.indices.Remove(id)
 }
@@ -328,8 +400,8 @@ func (m *ExpireMap) randomExpire() bool {
 		for i := sz - 1; i >= 0; i-- {
 			id := m.indices.Kth(i)
 			v := m.values.get(id)
-			if v.ttl <= m.Curtime() {
-				m.del(v.key, id)
+			if v.due <= m.Curtime() {
+				m.del(v.key, id, Expire)
 			}
 		}
 		return false
@@ -341,8 +413,8 @@ func (m *ExpireMap) randomExpire() bool {
 		sz := m.indices.Size()
 		id := m.indices.Kth(rand.Intn(sz))
 		v := m.values.get(id)
-		if v.ttl <= m.Curtime() {
-			m.del(v.key, id)
+		if v.due <= m.Curtime() {
+			m.del(v.key, id, Expire)
 			expiredFound++
 		}
 	}
@@ -373,8 +445,8 @@ func (m *ExpireMap) rotateExpire(kth int) int {
 	for i := 0; i < totalChecks; i++ {
 		id := m.indices.Kth(kth)
 		v := m.values.get(id)
-		if v.ttl <= m.Curtime() {
-			m.del(v.key, id)
+		if v.due <= m.Curtime() {
+			m.del(v.key, id, Expire)
 		}
 		kth--
 		if kth < 0 {
