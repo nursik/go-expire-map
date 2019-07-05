@@ -108,6 +108,8 @@ type ExpireMap struct {
 	mutex   sync.RWMutex
 	stopped int64
 	curtime int64
+
+	onDelete func(k, v interface{})
 }
 
 // SetTTL updates ttl for the given key. If ttl was successfully updated,
@@ -117,6 +119,8 @@ type ExpireMap struct {
 // timeResolution, it just removes a key.
 func (m *ExpireMap) SetTTL(key interface{}, ttl time.Duration) (interface{}, bool) {
 	if ttl <= timeResolution {
+		// XXX: we run Delete explicitly since it is user's
+		// responsibility to give sensible TTL here.
 		m.Delete(key)
 		return nil, false
 	}
@@ -134,7 +138,7 @@ func (m *ExpireMap) SetTTL(key interface{}, ttl time.Duration) (interface{}, boo
 	}
 	v := m.values.get(id)
 	if v.ttl <= m.Curtime() {
-		m.del(key, id)
+		m.del(key, id, false)
 		m.mutex.Unlock()
 		return nil, false
 	}
@@ -186,7 +190,7 @@ func (m *ExpireMap) Get(key interface{}) (interface{}, bool) {
 		return v.value, true
 	}
 
-	m.del(key, id)
+	m.del(key, id, false)
 	m.mutex.Unlock()
 	return nil, false
 }
@@ -222,7 +226,7 @@ func (m *ExpireMap) Delete(key interface{}) {
 		return
 	}
 	if id, ok := m.keys[key]; ok {
-		m.del(key, id)
+		m.del(key, id, true)
 	}
 	m.mutex.Unlock()
 }
@@ -308,8 +312,23 @@ func (m *ExpireMap) Curtime() int64 {
 	return atomic.LoadInt64(&m.curtime)
 }
 
+func (m *ExpireMap) SetOnDelete(fn func(k, v interface{})) {
+	m.onDelete = fn
+}
+
 // del is helper method to delete key and associated id from the map
-func (m *ExpireMap) del(key interface{}, id uint64) {
+// set explicit to true if del was triggered by user's actions
+// explicitly, i.e. during Delete()
+func (m *ExpireMap) del(key interface{}, id uint64, explicit bool) {
+	if !explicit && m.onDelete != nil {
+		id, ok := m.keys[key]
+		if !ok {
+			return
+		}
+
+		v := m.values.get(id)
+		m.onDelete(key, v.value)
+	}
 	delete(m.keys, key)
 	m.values.remove(id)
 	m.indices.Remove(id)
@@ -329,7 +348,7 @@ func (m *ExpireMap) randomExpire() bool {
 			id := m.indices.Kth(i)
 			v := m.values.get(id)
 			if v.ttl <= m.Curtime() {
-				m.del(v.key, id)
+				m.del(v.key, id, false)
 			}
 		}
 		return false
@@ -342,7 +361,7 @@ func (m *ExpireMap) randomExpire() bool {
 		id := m.indices.Kth(rand.Intn(sz))
 		v := m.values.get(id)
 		if v.ttl <= m.Curtime() {
-			m.del(v.key, id)
+			m.del(v.key, id, false)
 			expiredFound++
 		}
 	}
@@ -374,7 +393,7 @@ func (m *ExpireMap) rotateExpire(kth int) int {
 		id := m.indices.Kth(kth)
 		v := m.values.get(id)
 		if v.ttl <= m.Curtime() {
-			m.del(v.key, id)
+			m.del(v.key, id, false)
 		}
 		kth--
 		if kth < 0 {
