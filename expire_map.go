@@ -165,7 +165,7 @@ func (m *ExpireMap) SetTTL(key interface{}, ttl time.Duration) (interface{}, boo
 		return nil, false
 	}
 
-	if (m.events | Update) > 0 && m.c != nil {
+	if (m.events & Update) > 0 && m.c != nil {
 		m.c <- Event{
 			Key: key,
 			Value: v.value,
@@ -302,7 +302,7 @@ func (m *ExpireMap) Set(key interface{}, value interface{}, ttl time.Duration) {
 		value: value,
 		due:   due,
 	})
-	if (m.events | t) > 0 && m.c != nil {
+	if (m.events & t) > 0 && m.c != nil {
 		m.c <- Event{
 			Key: key,
 			Value: value,
@@ -374,7 +374,7 @@ func (m *ExpireMap) Notify(c chan <- Event, events EventType) {
 // del is helper method to delete key and associated id from the map
 func (m *ExpireMap) del(key interface{}, id uint64, t EventType) {
 	delete(m.keys, key)
-	if (m.events | t) > 0 && m.c != nil {
+	if (m.events & t) > 0 && m.c != nil {
 		i := m.values.get(id)
 		m.c <- Event{
 			Key: key,
