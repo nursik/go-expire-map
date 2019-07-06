@@ -52,17 +52,25 @@ const expireInterval = 100 * time.Millisecond
 type EventType uint8
 
 const (
-	Expire EventType = 1<<iota
+	// Expire event is fired, when key is deleted due to expiration
+	Expire EventType = 1 << iota
+	// Delete event is fired, when key explicitly deleted using Delete
+	// or SetTTL (ttl input is less than timeResolution)
 	Delete
+	// Update event is fired, when TTL or value of any key is updated
 	Update
+	// Set event is fired, when new key is inserted
 	Set
+	// AllEvents is a helper constant, which is the same as
+	// Expire | Delete | Update | Set
 	AllEvents = Expire | Delete | Update | Set
+	// NoEvents is a helper constant, which is the same as 0 (no events)
 	NoEvents = 0
 )
 
 // Event is used for notification channel
 type Event struct {
-	Key interface{}
+	Key   interface{}
 	Value interface{}
 	// Time is when this event occurred (in Unix nanoseconds)
 	Time int64
@@ -132,8 +140,8 @@ type ExpireMap struct {
 	mutex   sync.RWMutex
 	stopped int64
 	curtime int64
-	c chan <- Event
-	events EventType
+	c       chan<- Event
+	events  EventType
 }
 
 // SetTTL updates ttl for the given key. If ttl was successfully updated,
@@ -165,13 +173,13 @@ func (m *ExpireMap) SetTTL(key interface{}, ttl time.Duration) (interface{}, boo
 		return nil, false
 	}
 
-	if (m.events & Update) > 0 && m.c != nil {
+	if (m.events&Update) > 0 && m.c != nil {
 		m.c <- Event{
-			Key: key,
+			Key:   key,
 			Value: v.value,
-			Type: Update,
-			Time: m.Curtime(),
-			Due: due,
+			Type:  Update,
+			Time:  m.Curtime(),
+			Due:   due,
 		}
 	}
 
@@ -272,7 +280,7 @@ func (m *ExpireMap) Close() {
 		m.keys = nil
 		m.values = nil
 		m.indices = nil
-		//m.c = nil
+		m.c = nil
 	}
 	m.mutex.Unlock()
 }
@@ -302,13 +310,13 @@ func (m *ExpireMap) Set(key interface{}, value interface{}, ttl time.Duration) {
 		value: value,
 		due:   due,
 	})
-	if (m.events & t) > 0 && m.c != nil {
+	if (m.events&t) > 0 && m.c != nil {
 		m.c <- Event{
-			Key: key,
+			Key:   key,
 			Value: value,
-			Due: due,
-			Time: m.Curtime(),
-			Type: t,
+			Due:   due,
+			Time:  m.Curtime(),
+			Type:  t,
 		}
 	}
 	m.mutex.Unlock()
@@ -359,8 +367,9 @@ func (m *ExpireMap) Curtime() int64 {
 
 // Notify sets a channel and causes a map to send Event to a channel based on the given
 // EventType. To receive all events use AllEvents constant. To receive no events use
-// NoEvents constant or set nil chan.
-func (m *ExpireMap) Notify(c chan <- Event, events EventType) {
+// NoEvents constant or set nil chan. When the map stops, no events are guaranteed to
+// be sent to the channel. It is up to the user to close the channel
+func (m *ExpireMap) Notify(c chan<- Event, events EventType) {
 	m.mutex.Lock()
 	if m.Stopped() {
 		m.mutex.Unlock()
@@ -374,13 +383,13 @@ func (m *ExpireMap) Notify(c chan <- Event, events EventType) {
 // del is helper method to delete key and associated id from the map
 func (m *ExpireMap) del(key interface{}, id uint64, t EventType) {
 	delete(m.keys, key)
-	if (m.events & t) > 0 && m.c != nil {
+	if (m.events&t) > 0 && m.c != nil {
 		i := m.values.get(id)
 		m.c <- Event{
-			Key: key,
+			Key:   key,
 			Value: i.value,
-			Time: m.Curtime(),
-			Type: t,
+			Time:  m.Curtime(),
+			Type:  t,
 		}
 	}
 	m.values.remove(id)

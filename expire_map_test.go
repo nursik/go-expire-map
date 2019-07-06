@@ -531,31 +531,31 @@ func TestExpireMap_Notify(t *testing.T) {
 	expireMap.Notify(c, AllEvents)
 	expireMap.Set(1, 1, time.Second)
 
-	if e := <- c; e.Key != 1 || e.Value != 1 || e.Type != Set {
+	if e := <-c; e.Key != 1 || e.Value != 1 || e.Type != Set {
 		t.Error("Notify() - got wrong value")
 	}
 
 	expireMap.Set(1, 2, time.Second)
 
-	if e := <- c; e.Key != 1 || e.Value != 2 || e.Type != Update {
+	if e := <-c; e.Key != 1 || e.Value != 2 || e.Type != Update {
 		t.Error("Notify() - got wrong value")
 	}
 
 	expireMap.Set(2, 2, time.Second)
 
-	if e := <- c; e.Key != 2 || e.Value != 2 || e.Type != Set {
+	if e := <-c; e.Key != 2 || e.Value != 2 || e.Type != Set {
 		t.Error("Notify() - got wrong value")
 	}
 
 	expireMap.Delete(2)
 
-	if e := <- c; e.Key != 2 || e.Value != 2 || e.Type != Delete {
+	if e := <-c; e.Key != 2 || e.Value != 2 || e.Type != Delete {
 		t.Error("Notify() - got wrong value")
 	}
 
 	time.Sleep(time.Second)
 
-	if e := <- c; e.Key != 1 || e.Value != 2 || e.Type != Expire {
+	if e := <-c; e.Key != 1 || e.Value != 2 || e.Type != Expire {
 		t.Error("Notify() - got wrong value")
 	}
 }
