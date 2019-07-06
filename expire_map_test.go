@@ -4,6 +4,7 @@ import (
 	"math"
 	"math/rand"
 	"sort"
+	"sync"
 	"testing"
 	"time"
 )
@@ -77,6 +78,36 @@ func TestExpireMap_Get2(t *testing.T) {
 	if x != 11 {
 		t.Error("Get() - error with getting pointer")
 	}
+}
+
+func newAssert(t testing.TB, fail bool) func(bool, ...interface{}) {
+	return func(expected bool, v ...interface{}) {
+		if !expected {
+			t.Helper()
+			if t.Error(v...); fail {
+				t.FailNow()
+			}
+		}
+	}
+}
+
+func TestExpireMap_SetOnDelete(t *testing.T) {
+	assert := newAssert(t, true)
+	expireMap := New()
+	defer expireMap.Close()
+	ttl := time.Second
+
+	key, value := "key", "value"
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	expireMap.SetOnDelete(func(k, v interface{}) {
+		defer wg.Done()
+		assert(k.(string) == key, k)
+		assert(v.(string) == value, v)
+	})
+	expireMap.Set(key, value, ttl)
+	wg.Wait()
 }
 
 func TestExpireMap_Set(t *testing.T) {
