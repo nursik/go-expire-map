@@ -1,0 +1,147 @@
+-- Benchmarks were done adding the following code to New(), so we don't need to rewrite or add new tests:
+    c := make(chan Event, 1000)
+	rl.Notify(c, AllEvents)
+	go func(e *ExpireMap){
+		for !e.Stopped() {
+			select {
+			case _ = <- c:
+				continue
+			default:
+				continue
+			}
+		}
+		close(c)
+	}(rl)
+
+-- Insert into empty map
+BenchmarkExpireMap_Set/N_1000-8         	    3000	    451294 ns/op
+BenchmarkExpireMap_Set/N_10000-8        	     300	   5101538 ns/op
+BenchmarkExpireMap_Set/N_100000-8       	      30	  45396362 ns/op
+BenchmarkExpireMap_Set/N_1000000-8      	       2	 698103559 ns/op
+BenchmarkExpireMap_Set/N_10000000-8     	       1	7368845077 ns/op
+
+-- Update values
+BenchmarkExpireMap_Set2/N_1000-8        	    5000	    258122 ns/op
+BenchmarkExpireMap_Set2/N_10000-8       	     500	   2740990 ns/op
+BenchmarkExpireMap_Set2/N_100000-8      	      50	  27979704 ns/op
+BenchmarkExpireMap_Set2/N_1000000-8     	       3	 345331123 ns/op
+BenchmarkExpireMap_Set2/N_10000000-8    	       1	3446210499 ns/op
+
+-- Delete keys
+BenchmarkExpireMap_Delete/N_1000-8      	    5000	    311911 ns/op
+BenchmarkExpireMap_Delete/N_10000-8     	     500	   3124353 ns/op
+BenchmarkExpireMap_Delete/N_100000-8    	      30	  36656754 ns/op
+BenchmarkExpireMap_Delete/N_1000000-8   	       3	 409117549 ns/op
+BenchmarkExpireMap_Delete/N_10000000-8  	       1	4476734812 ns/op
+
+-- Update TTL
+BenchmarkExpireMap_SetTTL/N_1000-8      	    5000	    239871 ns/op
+BenchmarkExpireMap_SetTTL/N_10000-8     	     500	   2688579 ns/op
+BenchmarkExpireMap_SetTTL/N_100000-8    	      50	  27578853 ns/op
+BenchmarkExpireMap_SetTTL/N_1000000-8   	       3	 338704579 ns/op
+BenchmarkExpireMap_SetTTL/N_10000000-8  	       1	3441656066 ns/op
+
+-- Remove key using SetTTL()
+BenchmarkExpireMap_SetTTL2/N_1000-8     	    5000	    336037 ns/op
+BenchmarkExpireMap_SetTTL2/N_10000-8    	     500	   3311050 ns/op
+BenchmarkExpireMap_SetTTL2/N_100000-8   	      50	  36417065 ns/op
+BenchmarkExpireMap_SetTTL2/N_1000000-8  	       3	 416076277 ns/op
+BenchmarkExpireMap_SetTTL2/N_10000000-8 	       1	4324414477 ns/op
+
+-- Benchmarks for Get(), when there are already expired keys
+BenchmarkExpireMap_Get/N_1000_Exp_50%-8 	    5000	    259812 ns/op
+BenchmarkExpireMap_Get/N_1000_Exp_33%-8 	   10000	    212118 ns/op
+BenchmarkExpireMap_Get/N_1000_Exp_25%-8 	   10000	    184533 ns/op
+BenchmarkExpireMap_Get/N_1000_Exp_20%-8 	   10000	    170553 ns/op
+BenchmarkExpireMap_Get/N_1000_Exp_10%-8 	   10000	    138550 ns/op
+BenchmarkExpireMap_Get/N_1000_Exp_0%-8  	   10000	    106864 ns/op
+BenchmarkExpireMap_Get/N_10000_Exp_50%-8         	     500	   2656899 ns/op
+BenchmarkExpireMap_Get/N_10000_Exp_33%-8         	    1000	   2241672 ns/op
+BenchmarkExpireMap_Get/N_10000_Exp_25%-8         	    1000	   1929476 ns/op
+BenchmarkExpireMap_Get/N_10000_Exp_20%-8         	    1000	   1798914 ns/op
+BenchmarkExpireMap_Get/N_10000_Exp_10%-8         	    1000	   1487110 ns/op
+BenchmarkExpireMap_Get/N_10000_Exp_0%-8          	    2000	   1106623 ns/op
+BenchmarkExpireMap_Get/N_100000_Exp_50%-8        	      50	  30297024 ns/op
+BenchmarkExpireMap_Get/N_100000_Exp_33%-8        	      50	  24321522 ns/op
+BenchmarkExpireMap_Get/N_100000_Exp_25%-8        	      50	  22122757 ns/op
+BenchmarkExpireMap_Get/N_100000_Exp_20%-8        	     100	  20393090 ns/op
+BenchmarkExpireMap_Get/N_100000_Exp_10%-8        	     100	  17339315 ns/op
+BenchmarkExpireMap_Get/N_100000_Exp_0%-8         	     100	  12789782 ns/op
+BenchmarkExpireMap_Get/N_1000000_Exp_50%-8       	       3	 349446981 ns/op
+BenchmarkExpireMap_Get/N_1000000_Exp_33%-8       	       5	 301366984 ns/op
+BenchmarkExpireMap_Get/N_1000000_Exp_25%-8       	       5	 260359208 ns/op
+BenchmarkExpireMap_Get/N_1000000_Exp_20%-8       	       5	 250672886 ns/op
+BenchmarkExpireMap_Get/N_1000000_Exp_10%-8       	       5	 228477768 ns/op
+BenchmarkExpireMap_Get/N_1000000_Exp_0%-8        	      10	 183707119 ns/op
+BenchmarkExpireMap_Get/N_10000000_Exp_50%-8      	       1	3529300422 ns/op
+BenchmarkExpireMap_Get/N_10000000_Exp_33%-8      	       1	3309450070 ns/op
+BenchmarkExpireMap_Get/N_10000000_Exp_25%-8      	       1	2743473134 ns/op
+BenchmarkExpireMap_Get/N_10000000_Exp_20%-8      	       1	2640328713 ns/op
+BenchmarkExpireMap_Get/N_10000000_Exp_10%-8      	       1	2593013638 ns/op
+BenchmarkExpireMap_Get/N_10000000_Exp_0%-8       	       1	1875817257 ns/op
+
+-- N_X_Rn_Y_Wn_Z - Benchmarks with Y reader goroutines, Z writer goroutines with 0 <= key < X
+-- Every goroutine performs 100000 random map's method calls. See source code
+BenchmarkRWParallel/N_1000_Rn_1_Wn_1_Steps_100000-8         	      20	  96959372 ns/op
+BenchmarkRWParallel/N_1000_Rn_1_Wn_2_Steps_100000-8         	      10	 167356759 ns/op
+BenchmarkRWParallel/N_1000_Rn_2_Wn_1_Steps_100000-8         	      10	 125992032 ns/op
+BenchmarkRWParallel/N_1000_Rn_2_Wn_2_Steps_100000-8         	      10	 195081205 ns/op
+BenchmarkRWParallel/N_1000_Rn_4_Wn_1_Steps_100000-8         	      10	 181562972 ns/op
+BenchmarkRWParallel/N_1000_Rn_4_Wn_2_Steps_100000-8         	       5	 237878060 ns/op
+BenchmarkRWParallel/N_10000_Rn_1_Wn_1_Steps_100000-8        	      20	  99747371 ns/op
+BenchmarkRWParallel/N_10000_Rn_1_Wn_2_Steps_100000-8        	      10	 168175765 ns/op
+BenchmarkRWParallel/N_10000_Rn_2_Wn_1_Steps_100000-8        	      10	 131590575 ns/op
+BenchmarkRWParallel/N_10000_Rn_2_Wn_2_Steps_100000-8        	      10	 198597641 ns/op
+BenchmarkRWParallel/N_10000_Rn_4_Wn_1_Steps_100000-8        	      10	 181320009 ns/op
+BenchmarkRWParallel/N_10000_Rn_4_Wn_2_Steps_100000-8        	       5	 253781504 ns/op
+BenchmarkRWParallel/N_100000_Rn_1_Wn_1_Steps_100000-8       	      10	 114020179 ns/op
+BenchmarkRWParallel/N_100000_Rn_1_Wn_2_Steps_100000-8       	      10	 181328049 ns/op
+BenchmarkRWParallel/N_100000_Rn_2_Wn_1_Steps_100000-8       	      10	 146277222 ns/op
+BenchmarkRWParallel/N_100000_Rn_2_Wn_2_Steps_100000-8       	       5	 218533254 ns/op
+BenchmarkRWParallel/N_100000_Rn_4_Wn_1_Steps_100000-8       	      10	 215774485 ns/op
+BenchmarkRWParallel/N_100000_Rn_4_Wn_2_Steps_100000-8       	       5	 275244865 ns/op
+BenchmarkRWParallel/N_1000000_Rn_1_Wn_1_Steps_100000-8      	      10	 116503933 ns/op
+BenchmarkRWParallel/N_1000000_Rn_1_Wn_2_Steps_100000-8      	      10	 161678969 ns/op
+BenchmarkRWParallel/N_1000000_Rn_2_Wn_1_Steps_100000-8      	      10	 142091172 ns/op
+BenchmarkRWParallel/N_1000000_Rn_2_Wn_2_Steps_100000-8      	       5	 237524497 ns/op
+BenchmarkRWParallel/N_1000000_Rn_4_Wn_1_Steps_100000-8      	       5	 210735338 ns/op
+BenchmarkRWParallel/N_1000000_Rn_4_Wn_2_Steps_100000-8      	       5	 283808893 ns/op
+BenchmarkRWParallel/N_10000000_Rn_1_Wn_1_Steps_100000-8     	      10	 125966424 ns/op
+BenchmarkRWParallel/N_10000000_Rn_1_Wn_2_Steps_100000-8     	      10	 186030798 ns/op
+BenchmarkRWParallel/N_10000000_Rn_2_Wn_1_Steps_100000-8     	      10	 155906253 ns/op
+BenchmarkRWParallel/N_10000000_Rn_2_Wn_2_Steps_100000-8     	       5	 250346959 ns/op
+BenchmarkRWParallel/N_10000000_Rn_4_Wn_1_Steps_100000-8     	      10	 210756488 ns/op
+BenchmarkRWParallel/N_10000000_Rn_4_Wn_2_Steps_100000-8     	       5	 309679256 ns/op
+
+-- The same as previous benchmarks, except that TTL is small (10ms). So there are more Locks
+-- as active and passive expires occur
+BenchmarkRWParallel2/N_1000_Rn_1_Wn_1_Steps_100000-8        	      20	  98272971 ns/op
+BenchmarkRWParallel2/N_1000_Rn_1_Wn_2_Steps_100000-8        	      10	 167981725 ns/op
+BenchmarkRWParallel2/N_1000_Rn_2_Wn_1_Steps_100000-8        	      10	 124618000 ns/op
+BenchmarkRWParallel2/N_1000_Rn_2_Wn_2_Steps_100000-8        	      10	 178832036 ns/op
+BenchmarkRWParallel2/N_1000_Rn_4_Wn_1_Steps_100000-8        	      10	 176522931 ns/op
+BenchmarkRWParallel2/N_1000_Rn_4_Wn_2_Steps_100000-8        	       5	 225414535 ns/op
+BenchmarkRWParallel2/N_10000_Rn_1_Wn_1_Steps_100000-8       	      20	  52981129 ns/op
+BenchmarkRWParallel2/N_10000_Rn_1_Wn_2_Steps_100000-8       	      20	  85879036 ns/op
+BenchmarkRWParallel2/N_10000_Rn_2_Wn_1_Steps_100000-8       	      20	  76611436 ns/op
+BenchmarkRWParallel2/N_10000_Rn_2_Wn_2_Steps_100000-8       	      10	 112783511 ns/op
+BenchmarkRWParallel2/N_10000_Rn_4_Wn_1_Steps_100000-8       	      10	 113931213 ns/op
+BenchmarkRWParallel2/N_10000_Rn_4_Wn_2_Steps_100000-8       	      10	 150848374 ns/op
+BenchmarkRWParallel2/N_100000_Rn_1_Wn_1_Steps_100000-8      	      20	  57634563 ns/op
+BenchmarkRWParallel2/N_100000_Rn_1_Wn_2_Steps_100000-8      	      20	  93938535 ns/op
+BenchmarkRWParallel2/N_100000_Rn_2_Wn_1_Steps_100000-8      	      20	  80681094 ns/op
+BenchmarkRWParallel2/N_100000_Rn_2_Wn_2_Steps_100000-8      	      10	 122443374 ns/op
+BenchmarkRWParallel2/N_100000_Rn_4_Wn_1_Steps_100000-8      	      10	 133297089 ns/op
+BenchmarkRWParallel2/N_100000_Rn_4_Wn_2_Steps_100000-8      	      10	 162110325 ns/op
+BenchmarkRWParallel2/N_1000000_Rn_1_Wn_1_Steps_100000-8     	      20	  69239567 ns/op
+BenchmarkRWParallel2/N_1000000_Rn_1_Wn_2_Steps_100000-8     	      10	 117117109 ns/op
+BenchmarkRWParallel2/N_1000000_Rn_2_Wn_1_Steps_100000-8     	      20	  94846573 ns/op
+BenchmarkRWParallel2/N_1000000_Rn_2_Wn_2_Steps_100000-8     	      10	 147995672 ns/op
+BenchmarkRWParallel2/N_1000000_Rn_4_Wn_1_Steps_100000-8     	      10	 130540104 ns/op
+BenchmarkRWParallel2/N_1000000_Rn_4_Wn_2_Steps_100000-8     	      10	 202530505 ns/op
+BenchmarkRWParallel2/N_10000000_Rn_1_Wn_1_Steps_100000-8    	      20	  79100566 ns/op
+BenchmarkRWParallel2/N_10000000_Rn_1_Wn_2_Steps_100000-8    	      10	 136283807 ns/op
+BenchmarkRWParallel2/N_10000000_Rn_2_Wn_1_Steps_100000-8    	      10	 114958932 ns/op
+BenchmarkRWParallel2/N_10000000_Rn_2_Wn_2_Steps_100000-8    	      10	 159177246 ns/op
+BenchmarkRWParallel2/N_10000000_Rn_4_Wn_1_Steps_100000-8    	      10	 167136602 ns/op
+BenchmarkRWParallel2/N_10000000_Rn_4_Wn_2_Steps_100000-8    	       5	 236305027 ns/op

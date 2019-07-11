@@ -58,27 +58,34 @@ func main() {
 Expire map uses `interface{}` as a type for keys and values, but you can generate a custom map with different types.
 Benchmarks showed that it can be 25% faster than current implementation (benchmarks were done on `struct{x int, y string, z string}` as key and `struct{x int, y string, z string, t string}` as value).
 
-To generate a map with different types use `gen/gen.go`. It prints a code to stdout. You must save output to a file and fix imports, if necessary. Also, it uses `github.com/nursik/go-ordered-set` and you need import it too.
+To generate a map with different types use `gen/gen.go`. It prints a code to stdout. You must save output to a file and fix imports, if necessary. Also, it uses `github.com/nursik/go-ordered-set` and you need to import it too.
+
+You can check that a generated map works properly by generating tests using `gen/tests_gen.go`. It works in the same way as `gen.go`.
 
 `gen.go` assumes that value is a struct and that's why you don't need to set zero-value argument (-zv). But if you need other types as a value than struct, you must manually set zero-value.
 Default type for key and value is `interface{}`. Also you can change default name of the map struct (ExpireMap) using -mp argument.
 
+If you don't need notifications, you may remove this feature adding `-n=false` to arguments. A map with no notifications is a little bit faster (around 20ns faster for `SetTTL()`).
+
 Example:
 ```
-// Generate map with Animal{} as key and Planet{} as value
+// Generate a map with Animal{} as key and Planet{} as value
 go run gen.go -k Animal -v Planet
 
-// Generate map with Animal{} as key, *Planet{} as value and CustomMap as a map name 
+// Generate a map with Animal{} as key, *Planet{} as value and CustomMap as a map name 
 go run gen.go -k Animal -v *Planet -mp CustomMap
 
-// Generate map with int as key and *Planet{} as value
+// Generate a map with int as key and *Planet{} as value
 go run gen.go -k int -v *Planet
 
-// Generate map with int as key and string as value
+// Generate a map with int as key and string as value
 go run gen.go -k int -v string -zv "\"\""
 
-// Generate map with interface as key and []int as value
+// Generate a map with interface as key and []int as value
 go run gen.go -v "[]int" -zv "nil"
+
+// Generate a map with int as a key, interface as a value and with no notifications feature
+go run gen.go -k int -n=false
 
 ```
 ## Benchmarks
@@ -88,23 +95,47 @@ Benchmarks are done on Asus ROG GL553V with:
 
 Every entry is nanoseconds per operation (benchmark output / N). N is number of keys
 
+#### Without notifications channel set
 | Benchmark\N  | 1000 | 10000 | 100000 | 1000000 | 10000000 |
 | ------------ | ---- | ----- | ------ | ------- | -------- |
-| **Insert into empty map**     | 281 | 351 | 302 | 504 | 572 |
-| **Update values**             | 101 | 109 | 122 | 182 | 201 |
-| **Delete keys**               | 132 | 134 | 151 | 214 | 233 |
-| **Update TTL**                |  68 | 73  | 83  | 142 | 157 |
-| **Remove key using SetTTL()** | 136 | 137 | 156 | 217 | 237 |
+| **Insert into empty map**     | 280 | 348 | 303 | 504 | 561 |
+| **Update values**             | 100 | 107 | 120 | 179 | 199 |
+| **Delete keys**               | 160 | 154 | 189 | 241 | 256 |
+| **Update TTL**                | 86  | 92  | 103 | 162 | 174 |
+| **Remove key using SetTTL()** | 164 | 158 | 192 | 239 | 257 |
 
 Benchmarks for Get(), when there are already expired keys
 
 | Expired keys\N  | 1000 | 10000 | 100000 | 1000000 | 10000000 |
 | ------------    | ---- | ----- | ------ | ------- | -------- |
-| **50%**         | 308  | 285   | 163    | 205     | 220 |
-| **33%**         | 295  | 225   | 136    | 184     | 198 |
-| **25%**         | 264  | 221   | 125    | 175     | 188 |
-| **20%**         | 270  | 220   | 121    | 165     | 181 |
-| **10%**         | 223  | 170   | 101    | 152     | 164 |
-| **0%**          | 185  | 146   |  85    | 133     | 147 | 
+| **50%**         | 341  | 311   | 193    | 228     | 237 |
+| **33%**         | 330  | 294   | 177    | 205     | 218 |
+| **25%**         | 297  | 266   | 156    | 188     | 203 |
+| **20%**         | 325  | 268   | 155    | 184     | 198 |
+| **10%**         | 265  | 223   | 138    | 169     | 181 |
+| **0%**          | 233  | 182   | 121    | 150     | 162 | 
+
+
+#### With notifications channel set
+| Benchmark\N  | 1000 | 10000 | 100000 | 1000000 | 10000000 |
+| ------------ | ---- | ----- | ------ | ------- | -------- |
+| **Insert into empty map**     | 451 | 510 | 454 | 698 | 737 |
+| **Update values**             | 258 | 274 | 280 | 345 | 345 |
+| **Delete keys**               | 312 | 312 | 367 | 409 | 448 |
+| **Update TTL**                | 240 | 269 | 276 | 339 | 344 |
+| **Remove key using SetTTL()** | 336 | 331 | 364 | 416 | 432 |
+
+Benchmarks for Get(), when there are already expired keys
+
+| Expired keys\N  | 1000 | 10000 | 100000 | 1000000 | 10000000 |
+| ------------    | ---- | ----- | ------ | ------- | -------- |
+| **50%**         | 260  | 266   | 303    | 349     | 353 |
+| **33%**         | 212  | 224   | 243    | 301     | 331 |
+| **25%**         | 185  | 193   | 221    | 260     | 274 |
+| **20%**         | 171  | 180   | 204    | 251     | 264 |
+| **10%**         | 139  | 149   | 173    | 228     | 259 |
+| **0%**          | 107  | 111   | 128    | 184     | 188 | 
+
 
 There are also other benchmarks see [benchmark.log](https://github.com/nursik/go-expire-map/blob/master/benchmark.log)
+and [benchmark_with_channel.log](https://github.com/nursik/go-expire-map/blob/master/benchmark_with_channel.log)

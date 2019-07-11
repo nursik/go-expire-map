@@ -141,7 +141,7 @@ func TestExpireMap_GetTTL(t *testing.T) {
 	ttl := time.Second
 	expireMap.Set(1, 1, ttl)
 
-	if v := expireMap.GetTTL(1); math.Abs(float64(v-int64(ttl/time.Nanosecond))) >= float64(timeResolution) {
+	if v := expireMap.GetTTL(1); math.Abs(float64(v-int64(ttl/time.Nanosecond))) >= 4*float64(timeResolution) {
 		t.Error("GetTTL() - got wrong ttl")
 	}
 
