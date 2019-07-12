@@ -366,9 +366,11 @@ func (m *ExpireMap) Curtime() int64 {
 }
 
 // Notify sets a channel and causes a map to send Event to a channel based on the given
-// EventType. To receive all events use AllEvents constant. To receive no events use
-// NoEvents constant or set nil chan. When the map stops, no events are guaranteed to
-// be sent to the channel. It is up to the user to close the channel
+// EventType. To get events X1, X2... pass X1|X2|...(for example, to get Update and Set
+// events pass Update|Set). To receive all events use AllEvents constant (the same as
+// Update|Set|Delete|Expire). To receive no events use NoEvents constant or set nil chan.
+// When the map stops, no events are guaranteed to be sent to the channel.
+// It is up to the user to close the channel.
 func (m *ExpireMap) Notify(c chan<- Event, events EventType) {
 	m.mutex.Lock()
 	if m.Stopped() {
