@@ -2,8 +2,9 @@ package expiremap_test
 
 import (
 	"fmt"
-	expiremap "github.com/nursik/go-expire-map"
 	"time"
+
+	expiremap "github.com/nursik/go-expire-map"
 )
 
 func ExampleExpireMap_Notify() {
@@ -24,7 +25,7 @@ func ExampleExpireMap_Notify() {
 	fmt.Println(event.Key, event.Value, event.Type == expiremap.Update)
 
 	expireMap.Set("key2", "value2", time.Hour)
-	_ = <-c
+	<-c
 	expireMap.Delete("key2")
 	event = <-c
 	fmt.Println(event.Key, event.Value, event.Type == expiremap.Delete)

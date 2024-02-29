@@ -2,8 +2,9 @@ package expiremap_test
 
 import (
 	"fmt"
-	"github.com/nursik/go-expire-map"
 	"time"
+
+	expiremap "github.com/nursik/go-expire-map"
 )
 
 func Example() {
@@ -14,7 +15,7 @@ func Example() {
 	// GMT Wednesday, 1 January 2025, 0:00:00
 	far := time.Unix(1735689600, 0)
 
-	ttl := far.Sub(time.Now())
+	ttl := time.Until(far)
 
 	// Insert
 	expireMap.Set(1, 1, ttl)

@@ -3,14 +3,39 @@ package expiremap
 import (
 	"fmt"
 	"log"
-	"math"
 	"math/rand"
 	"runtime"
-	"strconv"
 	"sync"
 	"testing"
 	"time"
 )
+
+func BenchmarkExpireMap_Get(b *testing.B) {
+	presetN := []int{1000, 10000, 100000, 1000000, 10000000}
+
+	ttl := time.Hour
+
+	for _, pN := range presetN {
+		pNN := pN
+		b.Run(fmt.Sprintf("N_%d", pNN), func(b *testing.B) {
+			b.StopTimer()
+			expireMap := New()
+			for j := 0; j < pNN; j++ {
+				expireMap.Set(j, j, ttl)
+			}
+			b.StartTimer()
+			for i := 0; i < b.N; i++ {
+				_, _ = expireMap.Get(i % pNN)
+			}
+			b.StopTimer()
+			expireMap.Close()
+			expireMap = New()
+			runtime.GC()
+			b.StartTimer()
+			expireMap.Close()
+		})
+	}
+}
 
 func BenchmarkExpireMap_Set(b *testing.B) {
 	presetN := []int{1000, 10000, 100000, 1000000, 10000000}
@@ -27,8 +52,8 @@ func BenchmarkExpireMap_Set(b *testing.B) {
 				}
 				b.StopTimer()
 				expireMap.Close()
-				runtime.GC()
 				expireMap = New()
+				runtime.GC()
 				b.StartTimer()
 			}
 			expireMap.Close()
@@ -129,45 +154,6 @@ func BenchmarkExpireMap_SetTTL2(b *testing.B) {
 				expireMap.Close()
 			}
 		})
-	}
-}
-
-func BenchmarkExpireMap_Get(b *testing.B) {
-	presetN := []int{1000, 10000, 100000, 1000000, 10000000}
-	expiredRotation := []int{2, 3, 4, 5, 10, math.MaxInt32}
-
-	ttl := time.Hour
-
-	for _, pN := range presetN {
-		for _, eP := range expiredRotation {
-			pNN := pN
-			ePP := eP
-			ratio := strconv.Itoa(100 / ePP)
-			b.Run(fmt.Sprintf("N_%d_Exp_%s%%", pNN, ratio), func(b *testing.B) {
-				for i := 0; i < b.N; i++ {
-					b.StopTimer()
-					runtime.GC()
-					expireMap := New()
-					for j := 0; j < pNN; j++ {
-						if j%ePP == 0 {
-							expireMap.Set(j, j, time.Millisecond)
-						} else {
-							expireMap.Set(j, j, ttl)
-						}
-					}
-					time.Sleep(time.Millisecond)
-					b.StartTimer()
-					for j := 0; j < pNN; j++ {
-						v, ok := expireMap.Get(j)
-						if j%ePP != 0 && (v != j || !ok) {
-							b.Error("did not got value or presence flag was false")
-							b.FailNow()
-						}
-					}
-					expireMap.Close()
-				}
-			})
-		}
 	}
 }
 

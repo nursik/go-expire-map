@@ -1,32 +1,29 @@
-// Copyright (c) 2019 Nursultan Zarlyk. All rights reserved.
+// Copyright (c) 2024 Nursultan Zarlyk. All rights reserved.
 // Use of this source code is governed by the MIT License that can be found in the LICENSE file.
 
 // Package expiremap provides a thread-safe map with expiring keys.
 // You must pay attention for these facts:
-// 		1) Current implementation may hold up to 1 billion keys
-// 		2) All methods use Curtime() and it differs from time.Now() - Curtime() lags behind
-// 		time.Now() on average 0.5 ms and maximum 5 ms (see tests). So expire accuracy error
-// 		is around 1 ms
-// 		3) After creating a new map (calling New()), two goroutines are created - one
-// 		for updating curtime and another for deletion of expired keys. They exist until
-// 		Close() method is called
-//		4) There are active and passive expirations. Active expiration is done during Get(),
-//		and SetTTL() calls. Passive expiration happens in background and is done by goroutine
-// 		4) Passive expiration occurs every 100ms. It is done in two steps - first step is
-// 		inspired by algorithm used in Redis and second step is sequential expiration
-// 		5) It is guaranteed by sequential expiration, that no expired key will live more than
-// 		map.Size() / 200 seconds
+//  1. Current implementation may hold up to 1 billion keys
+//  2. After creating a new map (calling New()), goroutine is created for deletion
+//     expired keys. It exists until Close() method is called
+//  4. There are active and passive expirations. Active expiration is done during Get(),
+//     and SetTTL() calls. Passive expiration happens in background and is done by goroutine
+//  4. Passive expiration occurs every 100ms. It is done in two steps - first step is
+//     inspired by algorithm used in Redis and second step is sequential expiration
+//  5. It is guaranteed by sequential expiration, that no expired key will live more than
+//     map.Size() / 200 seconds
 //
 // First step's (or random expire) algorithm is following:
-// 		1) Check the size of the map. If it is less than 100, just iterate over all keys
-// 		and stop algorithm
-// 		2) Check 20 random keys. Remove all expired keys. If there were at least 5 deletions,
-// 		do the step 2 again (step 2 is done maximum 10 times)
+//  1. Check the size of the map. If it is less than 100, just iterate over all keys
+//     and stop algorithm
+//  2. Check 20 random keys. Remove all expired keys. If there were at least 5 deletions,
+//     do the step 2 again (step 2 is done maximum 10 times)
+//
 // Second step's (or rotate expire) algorithm is following:
-// 		1) Load to X a key on which we stopped on the previous call. If on previous call
-// 		we hit the bottom of the map, load top key of the map
-// 		2) Start from the key X and from that key expire 20 consecutive keys or stop if
-// 		we hit a bottom of the map
+//  1. Load to X a key on which we stopped on the previous call. If on previous call
+//     we hit the bottom of the map, load top key of the map
+//  2. Start from the key X and from that key expire 20 consecutive keys or stop if
+//     we hit a bottom of the map
 //
 // It means that at maximum 2200 expires per second may occur (not counting active expiration).
 // If you have a lot of insertions with unique keys, but you rarely call methods Get and SetTTL
@@ -35,15 +32,10 @@
 package expiremap
 
 import (
-	"github.com/nursik/go-ordered-set"
 	"math/rand"
 	"sync"
-	"sync/atomic"
 	"time"
 )
-
-// time interval for updating curtime variable
-const timeResolution = time.Millisecond
 
 // time interval for calling randomExpire and rotateExpire methods
 const expireInterval = 100 * time.Millisecond
@@ -55,9 +47,9 @@ const (
 	// Expire event is fired, when key is deleted due to expiration
 	Expire EventType = 1 << iota
 	// Delete event is fired, when key explicitly deleted using Delete
-	// or SetTTL (ttl input is less than timeResolution)
+	// or SetTTL with non positive TTL
 	Delete
-	// Update event is fired, when TTL or value of any key is updated
+	// Update event is fired, when TTL or value is updated
 	Update
 	// Set event is fired, when new key is inserted
 	Set
@@ -93,53 +85,13 @@ type item struct {
 	value interface{}
 }
 
-const pageBitSize = 10
-const pageSize = 1 << pageBitSize
-const pagesPerMap = 1000000
-
-type page struct {
-	size   int
-	values [pageSize]item
-}
-
-type pages struct {
-	pages [pagesPerMap]*page
-}
-
-func (ps *pages) put(index uint64, v item) {
-	bucket := index >> pageBitSize
-	if ps.pages[bucket] == nil {
-		ps.pages[bucket] = &page{}
-	}
-	page := ps.pages[bucket]
-	page.values[index&(1<<pageBitSize-1)] = v
-	page.size++
-}
-
-func (ps *pages) remove(index uint64) {
-	bucket := index >> pageBitSize
-	page := ps.pages[bucket]
-	page.size--
-	if page.size == 0 {
-		ps.pages[bucket] = nil
-	} else {
-		page.values[index&(1<<pageBitSize-1)].value = nil
-	}
-}
-
-func (ps *pages) get(index uint64) item {
-	bucket := index >> pageBitSize
-	return ps.pages[bucket].values[index&(1<<pageBitSize-1)]
-}
-
 // ExpireMap stores keys and corresponding values and TTLs.
 type ExpireMap struct {
-	keys    map[interface{}]uint64
-	values  *pages
-	indices orderedset.OrderedSet
+	keys    map[interface{}]int
+	values  []item
 	mutex   sync.RWMutex
-	stopped int64
-	curtime int64
+	stopped bool
+	now     func() int64
 	c       chan<- Event
 	events  EventType
 }
@@ -147,27 +99,28 @@ type ExpireMap struct {
 // SetTTL updates ttl for the given key. If ttl was successfully updated,
 // it returns value and "true". It happens, if and only if key presents
 // in the map and "ttl" variable is greater than timeResolution. In any other
-// case it returns nil and "false". Also, if "ttl" variable is less than
-// timeResolution, it just removes a key.
+// case it returns nil and "false". Also, if "ttl" variable is non positive,
+// it just removes a key.
 func (m *ExpireMap) SetTTL(key interface{}, ttl time.Duration) (interface{}, bool) {
-	if ttl <= timeResolution {
+	if ttl <= 0 {
 		m.Delete(key)
 		return nil, false
 	}
-	due := int64(ttl/time.Nanosecond) + m.Curtime()
+	curtime := m.now()
+	due := int64(ttl/time.Nanosecond) + curtime
 
 	m.mutex.Lock()
-	if m.Stopped() {
+	if m.stopped {
 		m.mutex.Unlock()
 		return nil, false
 	}
 	id, ok := m.keys[key]
-	if ok == false {
+	if !ok {
 		m.mutex.Unlock()
 		return nil, false
 	}
-	v := m.values.get(id)
-	if v.due <= m.Curtime() {
+	v := m.values[id]
+	if v.due <= m.now() {
 		m.del(key, id, Expire)
 		m.mutex.Unlock()
 		return nil, false
@@ -178,55 +131,53 @@ func (m *ExpireMap) SetTTL(key interface{}, ttl time.Duration) (interface{}, boo
 			Key:   key,
 			Value: v.value,
 			Type:  Update,
-			Time:  m.Curtime(),
+			Time:  curtime,
 			Due:   due,
 		}
 	}
 
 	v.due = due
-	m.values.put(id, v)
+	m.values[id] = v
 	m.mutex.Unlock()
 	return v.value, true
 }
 
 // Get returns value for the given key. If map does not contain
-// such key or key is expired, it returns nil and "false". If key is
-// expired it waits for write lock, checks a ttl again (as during wait of
+// such key or key is expired, it returns nil and "false". If key is expired,
+// then it waits for write lock, checks a ttl again (as during wait of
 // write lock, value and ttl could be updated) and if it is still expired,
-// removes the given key (otherwise it returns a value and "true"). So basically,
-// with increase of the number of hits to expired key, performance of Get method
-// lowers.
+// removes the given key (otherwise it returns a value and "true").
 func (m *ExpireMap) Get(key interface{}) (interface{}, bool) {
 	m.mutex.RLock()
-	if m.Stopped() {
+	if m.stopped {
 		m.mutex.RUnlock()
 		return nil, false
 	}
 	id, ok := m.keys[key]
-	if ok == false {
+	if !ok {
 		m.mutex.RUnlock()
 		return nil, false
 	}
-	v := m.values.get(id)
-	if v.due > m.Curtime() {
+	v := m.values[id]
+	if v.due > m.now() {
 		m.mutex.RUnlock()
 		return v.value, true
 	}
 	m.mutex.RUnlock()
 	m.mutex.Lock()
-	if m.Stopped() {
+	if m.stopped {
 		m.mutex.Unlock()
 		return nil, false
 	}
 
 	id, ok = m.keys[key]
-	if ok == false {
+	if !ok {
 		m.mutex.Unlock()
 		return nil, false
 	}
 
-	v = m.values.get(id)
-	if v.due > m.Curtime() {
+	v = m.values[id]
+	if v.due > m.now() {
 		m.mutex.Unlock()
 		return v.value, true
 	}
@@ -236,21 +187,21 @@ func (m *ExpireMap) Get(key interface{}) (interface{}, bool) {
 	return nil, false
 }
 
-// GetTTL returns ttl for the given key in nanoseconds, if it is not expired
-// and exists in the map. Otherwise, it returns 0.
+// GetTTL returns time in nanoseconds, when key will die. If key is expired
+// or does not exist in the map, it returns 0.
 func (m *ExpireMap) GetTTL(key interface{}) int64 {
 	m.mutex.RLock()
-	if m.Stopped() {
+	if m.stopped {
 		m.mutex.RUnlock()
 		return 0
 	}
 	id, ok := m.keys[key]
-	if ok == false {
+	if !ok {
 		m.mutex.RUnlock()
 		return 0
 	}
-	v := m.values.get(id)
-	if cur := m.Curtime(); v.due > cur {
+	v := m.values[id]
+	if cur := m.now(); v.due > cur {
 		ttl := v.due - cur
 		m.mutex.RUnlock()
 		return ttl
@@ -262,7 +213,7 @@ func (m *ExpireMap) GetTTL(key interface{}) int64 {
 // Delete removes key from the map.
 func (m *ExpireMap) Delete(key interface{}) {
 	m.mutex.Lock()
-	if m.Stopped() {
+	if m.stopped {
 		m.mutex.Unlock()
 		return
 	}
@@ -272,14 +223,16 @@ func (m *ExpireMap) Delete(key interface{}) {
 	m.mutex.Unlock()
 }
 
-// Close stops internal goroutines and removes all internal structures.
+// Close stops goroutine and channel.
 func (m *ExpireMap) Close() {
 	m.mutex.Lock()
-	if m.Stopped() == false {
-		atomic.StoreInt64(&m.stopped, 1)
+	if !m.stopped {
+		m.stopped = true
 		m.keys = nil
 		m.values = nil
-		m.indices = nil
+		if m.c != nil {
+			close(m.c)
+		}
 		m.c = nil
 	}
 	m.mutex.Unlock()
@@ -287,12 +240,10 @@ func (m *ExpireMap) Close() {
 
 // Set sets or updates value and ttl for the given key
 func (m *ExpireMap) Set(key interface{}, value interface{}, ttl time.Duration) {
-	if ttl < timeResolution {
-		return
-	}
-	due := int64(ttl/time.Nanosecond) + m.Curtime()
+	curtime := m.now()
+	due := int64(ttl/time.Nanosecond) + curtime
 	m.mutex.Lock()
-	if m.Stopped() {
+	if m.stopped {
 		m.mutex.Unlock()
 		return
 	}
@@ -300,43 +251,38 @@ func (m *ExpireMap) Set(key interface{}, value interface{}, ttl time.Duration) {
 	t := Update
 	id, ok := m.keys[key]
 	if !ok {
-		id = m.indices.LowestUnused()
-		m.indices.Insert(id)
+		id = len(m.keys)
 		m.keys[key] = id
+		m.values = append(m.values, item{})
 		t = Set
 	}
-	m.values.put(id, item{
+	m.values[id] = item{
 		key:   key,
 		value: value,
 		due:   due,
-	})
+	}
 	if (m.events&t) > 0 && m.c != nil {
 		m.c <- Event{
 			Key:   key,
 			Value: value,
 			Due:   due,
-			Time:  m.Curtime(),
+			Time:  curtime,
 			Type:  t,
 		}
 	}
 	m.mutex.Unlock()
 }
 
-// GetAll returns a slice of KeyValue. It guarantees that all
-// keys are presented in the map and were not expired at the moment
-// of method call.
+// GetAll returns a slice of KeyValue.
 func (m *ExpireMap) GetAll() []KeyValue {
 	m.mutex.RLock()
-	if m.Stopped() {
+	if m.stopped {
 		m.mutex.RUnlock()
 		return nil
 	}
-	sz := m.indices.Size()
-	ans := make([]KeyValue, 0, sz)
-	curtime := m.Curtime()
-	for i := 0; i < sz; i++ {
-		id := m.indices.Kth(i)
-		v := m.values.get(id)
+	var ans []KeyValue
+	curtime := m.now()
+	for _, v := range m.values {
 		if v.due > curtime {
 			ans = append(ans, KeyValue{Key: v.key, Value: v.value})
 		}
@@ -355,14 +301,9 @@ func (m *ExpireMap) Size() int {
 
 // Stopped indicates that map is stopped.
 func (m *ExpireMap) Stopped() bool {
-	return atomic.LoadInt64(&m.stopped) == 1
-}
-
-// Curtime returns Unix nanoseconds. You may use it instead of calling time.Now().UnixNano().
-// It lags behind time.Now() and on average difference is less than timeResolution,
-// which is 1 millisecond, but sometimes difference may be up to 5 milliseconds.
-func (m *ExpireMap) Curtime() int64 {
-	return atomic.LoadInt64(&m.curtime)
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+	return m.stopped
 }
 
 // Notify sets a channel and causes a map to send Event to a channel based on the given
@@ -373,7 +314,7 @@ func (m *ExpireMap) Curtime() int64 {
 // It is up to the user to close the channel.
 func (m *ExpireMap) Notify(c chan<- Event, events EventType) {
 	m.mutex.Lock()
-	if m.Stopped() {
+	if m.stopped {
 		m.mutex.Unlock()
 		return
 	}
@@ -383,19 +324,28 @@ func (m *ExpireMap) Notify(c chan<- Event, events EventType) {
 }
 
 // del is helper method to delete key and associated id from the map
-func (m *ExpireMap) del(key interface{}, id uint64, t EventType) {
+func (m *ExpireMap) del(key interface{}, id int, t EventType) {
+	itemToDelete := m.values[id]
+
+	if last := len(m.keys) - 1; id != last {
+		lastItem := m.values[last]
+		m.values[id] = lastItem
+		m.keys[lastItem.key] = id
+	}
+
 	delete(m.keys, key)
+	m.values[len(m.values)-1] = item{}
+	m.values = m.values[:len(m.values)-1]
+
 	if (m.events&t) > 0 && m.c != nil {
-		i := m.values.get(id)
 		m.c <- Event{
 			Key:   key,
-			Value: i.value,
-			Time:  m.Curtime(),
+			Value: itemToDelete.value,
+			Time:  m.now(),
 			Type:  t,
 		}
 	}
-	m.values.remove(id)
-	m.indices.Remove(id)
+
 }
 
 // randomExpire randomly gets keys and checks for expiration.
@@ -403,15 +353,14 @@ func (m *ExpireMap) del(key interface{}, id uint64, t EventType) {
 func (m *ExpireMap) randomExpire() bool {
 	const totalChecks = 20
 	const bruteForceThreshold = 100
-	if m.Stopped() {
+	if m.stopped {
 		return false
 	}
 	// Because the number of keys is small, just iterate over all keys
-	if sz := m.indices.Size(); sz <= bruteForceThreshold {
-		for i := sz - 1; i >= 0; i-- {
-			id := m.indices.Kth(i)
-			v := m.values.get(id)
-			if v.due <= m.Curtime() {
+	if sz := len(m.keys); sz <= bruteForceThreshold {
+		for _, id := range m.keys {
+			v := m.values[id]
+			if v.due <= m.now() {
 				m.del(v.key, id, Expire)
 			}
 		}
@@ -421,19 +370,16 @@ func (m *ExpireMap) randomExpire() bool {
 	expiredFound := 0
 
 	for i := 0; i < totalChecks; i++ {
-		sz := m.indices.Size()
-		id := m.indices.Kth(rand.Intn(sz))
-		v := m.values.get(id)
-		if v.due <= m.Curtime() {
+		sz := len(m.keys)
+		id := rand.Intn(sz)
+		v := m.values[id]
+		if v.due <= m.now() {
 			m.del(v.key, id, Expire)
 			expiredFound++
 		}
 	}
 
-	if expiredFound*4 >= totalChecks {
-		return true
-	}
-	return false
+	return expiredFound*4 >= totalChecks
 }
 
 // rotateExpire checks keys sequentially for expiration.
@@ -443,10 +389,10 @@ func (m *ExpireMap) randomExpire() bool {
 // checked.
 func (m *ExpireMap) rotateExpire(kth int) int {
 	const totalChecks = 20
-	if m.Stopped() {
+	if m.stopped {
 		return 0
 	}
-	sz := m.indices.Size()
+	sz := len(m.keys)
 	if sz == 0 {
 		return 0
 	}
@@ -454,10 +400,9 @@ func (m *ExpireMap) rotateExpire(kth int) int {
 		kth = sz - 1
 	}
 	for i := 0; i < totalChecks; i++ {
-		id := m.indices.Kth(kth)
-		v := m.values.get(id)
-		if v.due <= m.Curtime() {
-			m.del(v.key, id, Expire)
+		v := m.values[kth]
+		if v.due <= m.now() {
+			m.del(v.key, kth, Expire)
 		}
 		kth--
 		if kth < 0 {
@@ -467,26 +412,18 @@ func (m *ExpireMap) rotateExpire(kth int) int {
 	return kth
 }
 
+// Curtime returns current time in Unix nanoseconds
+func (m *ExpireMap) Curtime() int64 {
+	return m.now()
+}
+
 // start starts two goroutines - first for updating curtime variable and
 // second for expiration of keys. for loops with time.Sleep are used instead
 // of time tickers.
 func (m *ExpireMap) start() {
 	go func() {
-		for {
-			if m.Stopped() {
-				break
-			}
-			atomic.StoreInt64(&m.curtime, time.Now().UnixNano())
-			time.Sleep(timeResolution)
-		}
-	}()
-
-	go func() {
 		kth := 0
-		for {
-			if m.Stopped() {
-				break
-			}
+		for !m.Stopped() {
 			start := time.Now()
 			for i := 0; i < 10; i++ {
 				m.mutex.Lock()
@@ -508,10 +445,9 @@ func (m *ExpireMap) start() {
 // New returns a new map.
 func New() *ExpireMap {
 	rl := &ExpireMap{
-		keys:    make(map[interface{}]uint64),
-		indices: orderedset.NewTreeSet(),
-		values:  &pages{},
-		curtime: time.Now().UnixNano(),
+		keys:   make(map[interface{}]int),
+		values: nil,
+		now:    func() int64 { return time.Now().UnixNano() },
 	}
 	rl.start()
 	return rl
