@@ -6,7 +6,7 @@
 //  1. Current implementation may hold up to 1 billion keys
 //  2. After creating a new map (calling New()), goroutine is created for deletion
 //     expired keys. It exists until Close() method is called
-//  4. There are active and passive expirations. Active expiration is done during Get(),
+//  3. There are active and passive expirations. Active expiration is done during Get(),
 //     and SetTTL() calls. Passive expiration happens in background and is done by goroutine
 //  4. Passive expiration occurs every 100ms. It is done in two steps - first step is
 //     inspired by algorithm used in Redis and second step is sequential expiration
