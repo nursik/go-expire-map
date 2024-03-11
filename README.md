@@ -2,6 +2,8 @@
 [![GoDoc](https://godoc.org/github.com/nursik/go-expire-map?status.svg)](https://godoc.org/github.com/nursik/go-expire-map)
 [![Go Report Card](https://goreportcard.com/badge/github.com/nursik/go-expire-map)](https://goreportcard.com/report/github.com/nursik/go-expire-map)
 
+# Disclaimer!!
+This package is considered deprecated as there are more API rich and faster solutions like [ccache](https://github.com/karlseguin/ccache) or [ttlcache](https://github.com/jellydator/ttlcache/blob/v3/cache.go). Also, library uses UnixNano instead of time.Time, which makes it to fail during system time (wall clock) adjustments.
 ## Quick start
 
 ```go
